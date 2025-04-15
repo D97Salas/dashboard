@@ -1,0 +1,40 @@
+# Entorno virtual
+venv/
+env/
+ENV/
+.venv/
+*.pyc
+__pycache__/
+
+# Archivos temporales
+*.log
+*.pot
+*.pyc
+*.pyo
+*.db
+*.sqlite3
+*.env
+
+# Archivos de sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de migraciones
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# Archivos de configuración de editor
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Archivos generados por collectstatic
+staticfiles/
+static/
+
+# Archivos de media subidos por el usuario
+media/
+
+# Configuración local
+local_settings.py
