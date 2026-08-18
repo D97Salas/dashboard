@@ -1,0 +1,365 @@
+:root {
+  --bg: #f5f7f9;
+  --surface: #fff;
+  --surface-2: #fafbfc;
+  --line: #e3e8ed;
+  --ink: #16232e;
+  /* 4.99:1 sobre #fff. Estaba en #6d7f8e = 4.14:1, por debajo de AA — y este
+     token no es solo cromo: lo llevan las cifras de la columna `.n`, los ticks
+     de los ejes y todos los sublabels. El oscuro (#8ba0b1 = 6.09:1) ya pasaba.
+     Sigue muy por debajo de --ink (15.98:1): la jerarquía no se pierde. */
+  --muted: #5f7280;
+  --brand: #417690;
+  --ok: #2e7d5b;
+  --warn: #c2871b;
+  --danger: #c0392b;
+  --hover: #eef2f5;
+  --series-1: #2a78d6;   /* slot categórico 1, validado — ver palette.js */
+  /* Solo para el logotipo. Van aparte de `--brand`/`--ok` a propósito: esos son
+     cromo de interfaz y están desaturados para no competir con los datos, y por
+     eso un degradado entre ellos casi no se movía. Estos dos sí están saturados
+     porque el logo SÍ debe destacar. No son slots de gráfico: no pasan por
+     `validate_palette`. */
+  --logo-a: #2a78d6;     /* azul */
+  --logo-b: #0fa06a;     /* verde */
+  --shadow: 0 1px 2px rgba(16, 34, 48, .05), 0 1px 3px rgba(16, 34, 48, .04);
+  --radius: 12px;
+}
+:root[data-theme='dark'] {
+  --bg: #10161c;
+  --surface: #172029;
+  --surface-2: #1c2731;
+  --line: #27343f;
+  --ink: #e5edf4;
+  --muted: #8ba0b1;
+  --brand: #5fa8c7;
+  --ok: #4cb98a;
+  --warn: #e0a842;
+  --danger: #e57366;
+  --hover: #1f2b36;
+  --series-1: #3987e5;
+  /* Más claros y vivos: contra el fondo oscuro los del tema claro se hunden. */
+  --logo-a: #4f9bff;
+  --logo-b: #2fd694;
+  --shadow: 0 1px 3px rgba(0, 0, 0, .35);
+}
+
+* { box-sizing: border-box; }
+html { color-scheme: light dark; }
+body {
+  font: 14px/1.55 -apple-system, "Segoe UI", system-ui, sans-serif;
+  margin: 0; background: var(--bg); color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+main { max-width: 1240px; margin: 0 auto; padding: 24px 20px 80px; }
+/* Refetch: se atenúa el render anterior en vez de volver al skeleton. */
+main.stale { opacity: .55; transition: opacity .15s; }
+button, input, select { font: inherit; color: inherit; }
+/* Un solo anillo de foco por defecto. Las tarjetas, las filas clickeables y las
+   anclas ya traían el suyo de marca; los botones de preset, los chips, las
+   pestañas y los selects caían al del navegador, que cambia entre plataformas.
+   Las reglas específicas de más abajo lo siguen ganando por especificidad. */
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* ── Topbar sticky ───────────────────────────────────────────────
+   z-index alto y fondo opaco: sin esto las barras de Recharts se
+   dibujan por encima al hacer scroll. */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--line);
+}
+.topbar-row {
+  max-width: 1240px; margin: 0 auto; padding: 10px 20px;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.topbar-row.filters { padding-top: 0; padding-bottom: 10px; }
+/* Logotipo. El foco es "Fud" — el negocio — y "Dashboard" pasa a ser la
+   etiqueta que lo acompaña: pequeña, en versalitas y en el gris de apoyo. La
+   jerarquía la hace el CONTRASTE (12px normal gris vs 26px negra con color),
+   no el tamaño solo; por eso "Dashboard" baja en vez de que "Fud" suba más.
+   `line-height` fijo y `align-items: baseline` mantienen la fila en ~28px:
+   la topbar es sticky y las secciones anclan contra su alto. */
+.topbar h1 {
+  margin: 0; white-space: nowrap; line-height: 1.1;
+  display: inline-flex; align-items: baseline; gap: 8px;
+  font-size: 12px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted);
+}
+.topbar h1 span {
+  font-size: 26px; font-weight: 800; letter-spacing: -.035em;
+  text-transform: none; color: var(--logo-a);
+  /* Azul → verde, saturados. Dos paradas bastan porque el salto de tono ahora
+     es grande; con los grises de interfaz hacían falta tres y aun así no se
+     veía. */
+  background: linear-gradient(100deg, var(--logo-a), var(--logo-b));
+  /* Y esta es la que hace el trabajo: interpolar en OKLCH en vez de sRGB. Entre
+     azul y verde, sRGB pasa por un teal apagado — mezcla los canales y baja el
+     croma justo en el medio, que es donde cae la "u". OKLCH mantiene el croma y
+     el recorrido se ve. Va como segunda declaración a propósito: el navegador
+     que no la entienda se queda con la de arriba, que ya funciona. */
+  background: linear-gradient(100deg in oklch, var(--logo-a), var(--logo-b));
+  background-clip: text;
+}
+/* El degradado solo se activa donde se puede recortar sobre el texto. Sin la
+   guarda, un navegador sin soporte dejaría `color: transparent` y el nombre
+   desaparecería. */
+@supports (background-clip: text) or (-webkit-background-clip: text) {
+  .topbar h1 span { -webkit-background-clip: text; color: transparent; }
+}
+
+.search { position: relative; display: flex; align-items: center; flex: 1; min-width: 180px; max-width: 400px; margin-left: 8px; }
+.search svg { position: absolute; left: 10px; color: var(--muted); pointer-events: none; }
+.search input { width: 100%; padding: 7px 30px 7px 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.search input:focus { outline: 2px solid color-mix(in srgb, var(--brand) 40%, transparent); outline-offset: -1px; border-color: var(--brand); }
+.clear { position: absolute; right: 6px; border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 18px; line-height: 1; padding: 0 4px; }
+
+.ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); cursor: pointer; color: var(--muted); text-decoration: none;
+  transition: color .12s, border-color .12s, background .12s;
+}
+.ghost:hover { color: var(--brand); border-color: var(--brand); background: var(--hover); }
+.ghost:disabled { opacity: .5; cursor: default; }
+
+.filters input, .filters select {
+  padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
+}
+.filters .sep { color: var(--muted); }
+.presets { display: flex; gap: 4px; margin-left: auto; }
+.presets button {
+  padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); cursor: pointer; color: var(--muted);
+}
+.presets button:hover { color: var(--brand); border-color: var(--brand); }
+/* Estado seleccionado: relleno de marca, no solo un borde. */
+.presets button.on, .filters select.on {
+  background: var(--brand); border-color: var(--brand); color: #fff; font-weight: 600;
+}
+.filters select.on { color: #fff; }
+.search.on input { border-color: var(--brand); background: var(--surface); }
+
+.progress { height: 2px; background: linear-gradient(90deg, transparent, var(--brand), transparent); background-size: 40% 100%; background-repeat: no-repeat; animation: slide 1s infinite linear; }
+@keyframes slide { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+
+/* ── Cards ─────────────────────────────────────────────────────── */
+.cards, .alerts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.cards { margin-bottom: 20px; }
+.card {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; box-shadow: var(--shadow);
+}
+.card-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 500; }
+/* Cifras proporcionales: tabular-nums haría ver suelto un "121" a 34px.
+   Se reserva para columnas que sí alinean (tablas, ticks del eje). */
+/* `line-height` propio: el 1.55 del body es para prosa y le dejaba a un número
+   de 34px una caja de 53px, con el aire repartido arriba y abajo de la cifra. */
+.card-value { font-size: 22px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; }
+.card-sub { font-size: 12px; color: var(--muted); }
+/* El KPI principal, más grande — jerarquía visual antes que decoración. */
+.card.hero { grid-column: span 2; background: linear-gradient(135deg, var(--surface), var(--surface-2)); }
+.card.hero .card-value { font-size: 34px; }
+.card.accent .card-value { color: var(--ok); }
+.card.danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }
+.card.danger .card-value { color: var(--danger); }
+
+/* ── Paneles ───────────────────────────────────────────────────── */
+.panel {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 16px 18px; margin-bottom: 16px; box-shadow: var(--shadow);
+}
+.panel h2 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
+  margin: 0 0 14px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+}
+/* Sin `opacity`: el texto ya viene en --muted, y atenuarlo otra vez lo bajaba a
+   ~3.4:1. La jerarquía la dan el tamaño y el peso, no una segunda capa de gris. */
+.panel h2 small { font-size: 11px; text-transform: none; letter-spacing: 0; font-weight: 400; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 16px; }
+/* El margen lo lleva la grilla, no sus paneles: sin esto el panel ancho que
+   viene DESPUÉS de una grilla queda pegado al último de la fila. */
+.grid { margin-bottom: 16px; }
+.grid .panel { margin: 0; }
+
+/* ── Tablas ────────────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.bars td { padding: 5px 6px; border: 0; }
+.bars tr:hover .bar { filter: brightness(.94); }
+.bar-cell { position: relative; width: 100%; }
+.bar { position: absolute; inset: 2px auto 2px 0; background: color-mix(in srgb, var(--series-1) 20%, transparent); border-radius: 0 4px 4px 0; transition: width .3s ease; }
+.bar-label { position: relative; padding-left: 8px; }
+/* Misma muestra de color en los tres sitios donde aparece (barra, leyenda,
+   tabla): iban a 8/9/8 px y radios 2/3/2, y se notaba al ver el panel y su
+   detalle uno al lado del otro. */
+.bar-cell .dot { position: relative; display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-left: 8px; vertical-align: middle; }
+.bar-cell .dot + .bar-label { padding-left: 6px; }
+.n { text-align: right; white-space: nowrap; padding-left: 14px; color: var(--muted); }
+.strong { color: var(--ink); font-weight: 500; }
+.danger-text { color: var(--danger); font-weight: 600; }
+.plain th, .plain td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--line); }
+.plain tbody tr:last-child td { border-bottom: 0; }
+.plain tbody tr:hover { background: var(--hover); }
+.plain th { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; }
+.plain th.n, .plain td.n { text-align: right; }
+
+/* ── Barra apilada 100% (parte-de-un-todo) ─────────────────────
+   Los segmentos se separan con un hueco de 2px del color de la
+   superficie, nunca con un borde: el borde añade tinta que no es dato. */
+.stack { display: flex; gap: 2px; height: 30px; margin-bottom: 14px; }
+.seg { position: relative; display: grid; place-items: center; min-width: 3px; flex-grow: 0; flex-shrink: 1; }
+.seg:first-child { border-radius: 6px 0 0 6px; }
+.seg:last-child { border-radius: 0 6px 6px 0; }
+.seg:only-child { border-radius: 6px; }
+.seg em { font-style: normal; font-size: 11px; font-weight: 600; }
+.legend { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.legend li { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.legend .dot { width: 9px; height: 9px; border-radius: 3px; flex: none; }
+.legend .key { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.legend .n { font-variant-numeric: tabular-nums; }
+.legend .n:last-child { width: 48px; }
+
+/* ── Delta y titulares de comportamiento ─────────────────────── */
+.delta { font-size: 12px; font-weight: 600; width: fit-content; }
+.delta.up { color: var(--ok); }
+.delta.down { color: var(--danger); }
+.delta.flat, .delta.none, .delta.muted { color: var(--muted); font-weight: 400; }
+.headline { margin: 0 0 12px; font-size: 14px; }
+/* Sin `tabular-nums`: §7 lo reserva para columnas y ticks, que es donde los
+   dígitos alinean. Aquí van dentro de una frase, y ahí la cifra tabular abre
+   huecos raros alrededor del 1. */
+.headline.bad { color: var(--danger); font-weight: 500; }
+
+/* Cuadro de aviso: la franja izquierda es lo único que lo separa del panel —
+   un fondo rojo entero compite con el color de estado de los gráficos. */
+/* El relleno era --surface-2 (#fafbfc) dentro de un panel --surface (#fff): un
+   0.7% de diferencia, invisible en claro, así que el cuadro no se leía como
+   cuadro y la franja quedaba flotando. 4% de --danger sí se ve en los dos temas
+   y es el mismo tinte que ya usa `.card.danger` (6%) — sigue lejos de un fondo
+   rojo entero, que es lo que competiría con el color de estado de los gráficos. */
+.warn { border-left: 3px solid var(--danger); background: color-mix(in srgb, var(--danger) 4%, var(--surface)); border-radius: 0 8px 8px 0; padding: 12px 14px; margin-bottom: 14px; }
+.warn .headline { margin-bottom: 8px; }
+/* ── Secciones ──────────────────────────────────────────────────
+   `scroll-margin-top` deja el título por debajo de la topbar
+   sticky al saltar desde el índice; sin eso el ancla queda tapada. */
+.sect { scroll-margin-top: 132px; margin-top: 32px; }
+.sect:first-child { margin-top: 0; }
+/* El último hijo de una sección ya no aporta su margen: `.cards` (20px),
+   `.panel` (16px) y `.grid` (16px) se sumaban a los 32px de la siguiente y el
+   corte entre secciones salía a 48-52px, distinto según qué panel cerrara. */
+.sect > :last-child { margin-bottom: 0; }
+/* 13px contra los 12px de `.panel h2`: iban al mismo tamaño y la sección no se
+   leía por encima de los paneles que contiene. El salto lo da el tamaño, no un
+   tracking distinto — todo rótulo en versalitas va a .06em. */
+.sect-title {
+  font-size: 13px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--muted); font-weight: 700; margin: 0 0 14px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--line);
+  display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+.sect-title small { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 11px; }
+.jump { padding-top: 0; padding-bottom: 8px; gap: 6px; }
+.jump a {
+  font-size: 12px; padding: 3px 10px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--muted); text-decoration: none;
+}
+.jump a:hover { color: var(--brand); border-color: var(--brand); }
+.jump a:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+.sub { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 600; margin: 18px 0 6px; }
+.plain.pickable tbody tr { cursor: pointer; }
+.plain.pickable tbody tr:hover td:first-child { color: var(--brand); text-decoration: underline; }
+.plain.pickable tbody tr:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+
+.empty, .error, .ok { color: var(--muted); padding: 14px 2px; margin: 0; }
+.error { color: var(--danger); }
+.ok { color: var(--ok); }
+
+/* ── Tarjetas y paneles clickeables ──────────────────────────── */
+button.card { font: inherit; text-align: left; cursor: pointer; }
+.card.clickable { transition: border-color .12s, transform .12s; }
+.card.clickable:hover { border-color: var(--brand); transform: translateY(-1px); }
+.card.clickable:focus-visible, .panel-open:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.card-label { display: flex; align-items: center; gap: 4px; }
+.chev { color: var(--brand); font-weight: 700; }
+.panel-open {
+  font: inherit; color: inherit; background: none; border: 0; padding: 0;
+  cursor: pointer; text-transform: inherit; letter-spacing: inherit;
+}
+.panel-open:hover { color: var(--brand); }
+
+/* ── Cajón de detalle ────────────────────────────────────────── */
+.drawer-backdrop {
+  position: fixed; inset: 0; z-index: 100; background: rgba(10, 18, 26, .38);
+  display: flex; justify-content: flex-end;
+}
+.drawer {
+  width: min(900px, 100%); height: 100%; overflow-y: auto;
+  background: var(--surface); border-left: 1px solid var(--line);
+  padding: 18px 22px 60px; animation: slidein .18s ease-out;
+}
+/* Solo `transform`: animar la opacidad de una superficie grande deja ver el
+   fondo a través del panel en cualquier fotograma intermedio. */
+@keyframes slidein { from { transform: translateX(28px); } to { transform: none; } }
+.drawer header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 4px; }
+/* 16px, el mismo escalón que el h1 de la topbar. 17px no existía en la escala
+   (11·12·13·14·16·22·34) y era un tamaño suelto. */
+.drawer header h2 { font-size: 16px; margin: 0; }
+.drawer header .ghost { font-size: 20px; line-height: 1; padding: 2px 10px; }
+.drawer-meta { color: var(--muted); font-size: 12px; margin: 0 0 14px; }
+.drawer-meta em { font-style: normal; }
+
+.tabs { display: flex; gap: 6px; margin-bottom: 12px; border-bottom: 1px solid var(--line); }
+.tabs button {
+  background: none; border: 0; border-bottom: 2px solid transparent;
+  padding: 7px 12px; cursor: pointer; color: var(--muted); font-weight: 500;
+}
+.tabs button.on { color: var(--brand); border-bottom-color: var(--brand); }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.chips button {
+  padding: 5px 12px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); cursor: pointer; color: var(--muted); font-size: 13px;
+}
+.chips button:hover { border-color: var(--brand); color: var(--brand); }
+.chips button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(94px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.stats div { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; }
+.stats span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.stats b { font-variant-numeric: tabular-nums; }
+
+.bars.pickable tr { cursor: pointer; }
+.bars.pickable tr:hover .bar-label { color: var(--brand); text-decoration: underline; }
+.bars.pickable tr:focus-visible { outline: 2px solid var(--brand); outline-offset: -2px; }
+
+.col-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-end; margin-bottom: 14px; }
+.col-filters label { display: flex; flex-direction: column; gap: 3px; }
+.col-filters span { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.col-filters select {
+  padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px;
+  background: var(--surface); max-width: 220px;
+}
+.col-filters label.on select { border-color: var(--brand); color: var(--brand); font-weight: 600; }
+.col-filters .ghost { padding: 6px 10px; }
+
+.scroll-x { overflow-x: auto; }
+.scroll-x .plain td, .scroll-x .plain th { white-space: nowrap; }
+.plain td .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+
+@media (max-width: 700px) { .drawer { padding: 14px; } }
+
+/* ── Skeleton ──────────────────────────────────────────────────── */
+.sk { background: linear-gradient(90deg, var(--surface) 25%, var(--hover) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border: 1px solid var(--line); }
+.card.sk { height: 84px; }
+.panel.sk.tall { height: 320px; }
+.panel.sk.mid { height: 290px; margin: 0; }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+@media (max-width: 640px) {
+  .card.hero { grid-column: span 1; }
+  .card.hero .card-value { font-size: 26px; }
+  .search { order: 3; max-width: none; margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
