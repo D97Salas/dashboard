@@ -48,7 +48,7 @@ export const dur = (v) => {
 export function useMetrics() {
   // Vacío = histórico completo. El backend resuelve el rango real y lo devuelve
   // en `filters`; los inputs se sincronizan con eso en la primera carga.
-  const [filters, setFilters] = useState({ desde: '', hasta: '', city: '', store: '' })
+  const [filters, setFilters] = useState({ desde: '', hasta: '', city: '', store: '', customer: '' })
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -89,4 +89,23 @@ export const filterRows = (rows, q, ...fields) => {
     console.log(`filterRows tomó ${(end - start).toFixed(2)}ms para ${rows.length} filas con query "${q}"`)
   }
   return result
+}
+
+/** POST a una acción del dashboard. Lo único que escribe.
+ *
+ * Django exige el token CSRF en todo POST; la página lo siembra en la cookie
+ * `csrftoken` (`ensure_csrf_cookie` en la vista) y aquí se devuelve en la
+ * cabecera. Sin esto el primer POST se va en 403 sin explicación visible.
+ */
+export async function action(name, body = {}) {
+  const csrf = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/)?.[1] ?? ''
+  const r = await fetch(`/admin/dashboard/api/action/${name}/`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+    body: JSON.stringify(body),
+  })
+  const data = await r.json().catch(() => ({}))
+  if (!r.ok || !data.ok) throw new Error(data.error ?? `HTTP ${r.status}`)
+  return data
 }

@@ -13,6 +13,7 @@ export const IconSearch = () => <Icon d={<><circle cx="11" cy="11" r="7" /><path
 export const IconRefresh = () => <Icon d={<><path d="M21 12a9 9 0 1 1-2.6-6.4" /><path d="M21 3v6h-6" /></>} />
 export const IconBack = () => <Icon d={<path d="M19 12H5m0 0 6-6m-6 6 6 6" />} />
 export const IconSun = () => <Icon d={<><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>} />
+export const IconInfo = () => <Icon d={<><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.6v.1" /></>} />
 export const IconMoon = () => <Icon d={<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />} />
 
 export function useTheme() {
@@ -116,6 +117,92 @@ export function BarTable({ rows, label, value, format = money, extra, colors, on
   )
 }
 
+/** Magnitud y composición en la misma barra.
+ *
+ * `BarTable` compara totales; esta compara totales Y de qué están hechos. El
+ * largo de la barra sigue siendo el total (magnitud), y adentro cada segmento es
+ * un método/estado. Se usa igual en el panel de tiendas y en las franjas
+ * horarias del cajón: el pico de la 1pm no dice lo mismo si es todo efectivo que
+ * si es todo billetera.
+ *
+ * La leyenda va ARRIBA y con los colores de la dimensión, no del panel: el mismo
+ * método es del mismo color aquí, en «Cobrado a los usuarios» y en el cajón.
+ */
+export function SegmentedBars({ rows, label, value, series, colors, format = money, extra, onRow }) {
+  if (!rows.length) return <p className="empty">Sin datos</p>
+  const max = Math.max(...rows.map((r) => Number(r[value]) || 0), 1)
+
+  /** Los tramos de una fila, ya en porcentaje del total de ESA fila. */
+  const tramos = (r, total) => series
+    .map((s) => ({ s, v: Number(r.parts?.[s]) || 0 }))
+    .filter((t) => t.v > 0)
+    .map((t) => ({ ...t, pct: (t.v / total) * 100 }))
+
+  return (
+    <>
+      <ul className="legend top">
+        {series.map((s) => (
+          <li key={s}><span className="dot" style={{ background: colors(s) }} />{s}</li>
+        ))}
+      </ul>
+      <table className={`bars ${onRow ? 'pickable' : ''}`}>
+        <tbody>
+          {rows.map((r, i) => {
+            const total = Number(r[value]) || 0
+            const partes = total ? tramos(r, total) : []
+            // El relleno va como degradado de tramos duros sobre la MISMA barra
+            // que usa `BarTable`: con hijos dentro, una barra sin reparto quedaba
+            // sin fondo y sin segmentos, o sea invisible.
+            const fondo = partes.length
+              ? `linear-gradient(90deg, ${partes.reduce((acc, t) => {
+                const desde = acc.x
+                acc.x += t.pct
+                acc.out.push(`${colors(t.s)} ${desde.toFixed(2)}% ${acc.x.toFixed(2)}%`)
+                return acc
+              }, { x: 0, out: [] }).out.join(',')})`
+              : undefined
+            const pick = onRow && (() => onRow(r[label], r))
+            return (
+              <tr key={i} onClick={pick} tabIndex={pick ? 0 : undefined}
+                role={pick ? 'button' : undefined}
+                onKeyDown={pick ? (e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), pick()) : undefined}
+                title={partes.map((t) => `${t.s}: ${format(t.v)} (${Math.round(t.pct)}%)`).join(' · ')
+                  || (pick ? `Ver detalle de ${r[label]}` : undefined)}>
+                {/* La etiqueta va en su propia celda, no encima de la barra
+                    como en `BarTable`: ahí el fondo es un tinte al 20% y el texto
+                    se lee, pero aquí los tramos van a color pleno y la hora
+                    quedaba montada sobre el primero. */}
+                <td className="bar-name">{r[label] ?? '—'}</td>
+                <td className="bar-cell">
+                  <span className="bar" style={{ width: `${(total / max) * 100}%`, background: fondo }} />
+                  {/* Los rótulos van en una capa aparte, no dentro del relleno:
+                      el texto tiene alto propio y no depende de que el degradado
+                      resuelva altura. Cada uno se tiñe según SU tramo. */}
+                  {partes.length > 0 && (
+                    <span className="seg-tags" style={{ width: `${(total / max) * 100}%` }}>
+                      {partes.map((t) => (
+                        <span key={t.s} className="seg-tag"
+                          style={{ width: `${t.pct}%`, color: inkOn(colors(t.s)) }}>
+                          {/* Estrecho: solo el porcentaje. Por debajo del 9% no
+                              cabe nada legible y el dato queda en el tooltip. */}
+                          {t.pct >= 22 ? `${format(t.v)} · ${Math.round(t.pct)}%`
+                            : t.pct >= 9 ? `${Math.round(t.pct)}%` : ''}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </td>
+                {extra != null && <td className="n">{num(r[extra])}</td>}
+                <td className="n strong">{format(total)}</td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </>
+  )
+}
+
 /** Parte-de-un-todo: barra apilada al 100%. Separación por hueco de 2px del
  *  color de la superficie, nunca por borde. La leyenda lleva los valores
  *  exactos, así el porcentaje dentro del segmento puede omitirse si no cabe. */
@@ -167,11 +254,14 @@ const minusDays = (isoDate, n) => {
   return iso(d)
 }
 
-export function TopBar({ filters, setFilters, cities, stores, range, suggestions, q, setQ, onRefresh, loading, theme, toggleTheme, sections = [] }) {
+export function TopBar({ filters, setFilters, cities, stores, customers, range, suggestions, q, setQ, onRefresh, loading, theme, toggleTheme, onDocs, sections = [] }) {
   const set = (k) => (e) => setFilters({ ...filters, [k]: e.target.value })
   // Cambiar de ciudad limpia la tienda: la anterior puede no estar en la nueva,
   // y la pareja incompatible devolvería ceros sin explicar por qué.
   const setCity = (e) => setFilters({ ...filters, city: e.target.value, store: '' })
+  // Cambiar de negocio limpia la tienda: la que estaba elegida casi nunca es de
+  // este negocio, y dejarla puesta devolvía un panel entero en cero.
+  const setCustomer = (e) => setFilters({ ...filters, customer: e.target.value, store: '' })
 
   // "Hoy" sale de `range.max`, que el backend calcula en America/Bogota. Usar
   // el reloj del navegador haría que los presets no casaran nunca para quien
@@ -208,12 +298,26 @@ export function TopBar({ filters, setFilters, cities, stores, range, suggestions
         <button className="ghost" onClick={toggleTheme} title="Cambiar tema">
           {theme === 'light' ? <IconMoon /> : <IconSun />}
         </button>
+        {/* Las guías van aquí y no en una sección: son de consulta puntual, y una
+            sección más empujaría los paneles que sí se miran todos los días. */}
+        <button className="ghost" onClick={onDocs} title="Guías de operación">
+          <IconInfo /><span>Guías</span>
+        </button>
         <a className="ghost" href="/admin/" title="Volver al admin"><IconBack /><span>Admin</span></a>
       </div>
       <div className="topbar-row filters">
         <input type="date" value={filters.desde} onChange={set('desde')} />
         <span className="sep">→</span>
         <input type="date" value={filters.hasta} onChange={set('hasta')} />
+        {/* De lo ancho a lo estrecho: negocio → ciudad → tienda. Los tres son
+            el mismo tipo de recorte, así que van juntos y en ese orden. */}
+        {/* Se muestra siempre, aunque haya un solo negocio: a diferencia de una
+            faceta del cajón, este selector también dice de quién son las cifras
+            que estás viendo. Ocultarlo dejaba esa pregunta sin respuesta. */}
+        <select className={filters.customer ? 'on' : ''} value={filters.customer} onChange={setCustomer}>
+          <option value="">Todos los customers</option>
+          {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
         <select className={filters.city ? 'on' : ''} value={filters.city} onChange={setCity}>
           <option value="">Todas las ciudades</option>
           {cities.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}

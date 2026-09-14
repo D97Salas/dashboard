@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { dur, money, num } from './api'
-import { BarTable } from './components'
+import { BarTable, SegmentedBars } from './components'
 import { NO_COLOR, stableColors, statusColor } from './palette'
 
 const AXIS = { fontSize: 11, tickLine: false, axisLine: false, stroke: 'var(--muted)' }
@@ -89,8 +89,21 @@ function Chart({ chart, tint, cat, colorFor, onPick }) {
   // Barras en HTML plano, igual que en el panel principal: Recharts 3.10 no
   // pinta los rectángulos con `layout="vertical"` en este montaje, y así el
   // valor exacto queda siempre visible en vez de escondido tras el tooltip.
+  //
+  // Con `series` cada barra se parte por la dimensión (método, estado…) usando
+  // SU paleta, la misma del resto del cajón. El backend solo las manda sin
+  // filtro puesto: al filtrar queda un valor y la barra vuelve a ser sólida.
+  // La columna `n` solo informa cuando el valor NO es el conteo: en un gráfico
+  // de conteos mostraba el mismo número dos veces, pegado a sí mismo.
+  const extra = money_ || chart.unit === 'dur' ? 'n' : undefined
+  if (chart.series?.length) {
+    return (
+      <SegmentedBars rows={points} label="label" value="value" extra={extra}
+        series={chart.series} colors={(s) => colorFor(s)} format={fmtV} onRow={onPick} />
+    )
+  }
   return (
-    <BarTable rows={points} label="label" value="value" extra="n"
+    <BarTable rows={points} label="label" value="value" extra={extra}
       format={fmtV} onRow={onPick} colors={color} />
   )
 }
@@ -105,6 +118,27 @@ function Stats({ s, unit }) {
         ['p75', s.p75], ['Mín', s.min], ['Máx', s.max]].map(([k, v]) => (
         <div key={k}><span>{k}</span><b>{f(v)}</b></div>
       ))}
+    </div>
+  )
+}
+
+/** Lo que el desplegable no puede decir.
+ *
+ * Dos cosas: qué significa cada etiqueta (una faceta puede traer `hint`), y el
+ * id COMPLETO del valor elegido. La etiqueta lo abrevia para que quepa, pero
+ * para ir a buscarlo a la base hace falta entero — y seleccionarlo entero de un
+ * clic, no arrastrando sobre un `<option>` que ni siquiera se puede copiar.
+ */
+function FilterNote({ filters = [], cols }) {
+  const elegidos = filters.filter((f) => f.labels && cols[f.key])
+  const notas = filters.filter((f) => f.hint)
+  if (!elegidos.length && !notas.length) return null
+  return (
+    <div className="filter-note">
+      {elegidos.map((f) => (
+        <p key={f.key}><b>{f.label}:</b> <code>{cols[f.key]}</code></p>
+      ))}
+      {notas.map((f) => <p key={`${f.key}-hint`}>{f.hint}</p>)}
     </div>
   )
 }
@@ -197,7 +231,7 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
                     <select value={cols[f.key] ?? ''}
                       onChange={(e) => setCols({ ...cols, [f.key]: e.target.value })}>
                       <option value="">Todos</option>
-                      {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                      {f.options.map((o) => <option key={o} value={o}>{f.labels?.[o] ?? o}</option>)}
                     </select>
                   </label>
                 ))}
@@ -206,6 +240,8 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
                 )}
               </div>
             )}
+
+            <FilterNote filters={data.filters} cols={cols} />
 
             <Stats s={data.stats} unit={data.stats_unit} />
 

@@ -2,9 +2,10 @@ import { useState } from 'react'
 import {
   Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
-import { dur, filterRows, money, moneyShort, num, useMetrics } from './api'
-import { BarTable, Card, Panel, Section, Skeleton, StackedBar, TopBar, useTheme } from './components'
+import { dur, filterRows, money, moneyShort, num, pct, useMetrics } from './api'
+import { BarTable, Card, Panel, Section, SegmentedBars, Skeleton, StackedBar, TopBar, useTheme } from './components'
 import Detail from './Detail'
+import Docs from './Docs'
 import { CAT_DARK, CAT_LIGHT, SLOTS, stableColors, statusColor } from './palette'
 
 // Índice del salto de la topbar. El orden es el de la página: primero lo que
@@ -141,6 +142,72 @@ function DispatchTimes({ d, rows, onPick }) {
  *  `title` y en el detalle, que es donde se copia. */
 const corto = (s) => (s && s.length > 14 ? `${s.slice(0, 8)}…` : s)
 
+/** Lo cobrado a los usuarios, método a método.
+ *
+ * Tabla y no barras sueltas porque un método no se describe con un total: dos
+ * métodos con la misma cifra no son lo mismo si uno son tres cobros grandes y el
+ * otro trescientos chicos. La participación va como barra dentro de la celda —
+ * es parte-de-un-todo, y el porcentaje solo se lee bien contra algo.
+ */
+function ByMethod({ m, rows, colors, topups, onPick }) {
+  if (!m.n) return <p className="empty">Sin ventas cobradas en el período.</p>
+  return (
+    <>
+      <p className="headline">
+        <b>{money(m.total)}</b> cobrados a los usuarios en {num(m.n)} ventas ·
+        ticket promedio {money(m.n ? m.total / m.n : 0)}.
+      </p>
+      {/* La diferencia con el KPI de arriba no puede quedar sin explicar: son
+          dos cifras distintas del mismo período en la misma pantalla. */}
+      <p className="panel-note">
+        Las recargas ({money(topups)}) no entran acá: son dinero que el usuario mete a su billetera,
+        no algo que la cafetería le vendió. El KPI «Ingresos» de arriba sí las suma.
+      </p>
+      <table className="plain pickable">
+        <thead>
+          <tr>
+            <th>Método</th><th>Medio</th><th className="n">Ventas</th>
+            <th className="n">Ticket promedio</th><th className="n">Total</th><th>Participación</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => {
+            const tint = colors(r.metodo)
+            return (
+              <tr key={r.metodo} onClick={() => onPick(r.metodo)} tabIndex={0} role="button"
+                title={`Ver las ventas con ${r.metodo}`}
+                onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onPick(r.metodo))}>
+                <td><span className="dot" style={{ background: tint }} />{r.metodo}</td>
+                <td>{MEDIO[r.tipo] ?? r.tipo}</td>
+                <td className="n">{num(r.n)}</td>
+                <td className="n">{money(r.ticket)}</td>
+                <td className="n strong">{money(r.total)}</td>
+                <td className="share">
+                  <span className="share-bar" style={{
+                    width: `${r.share}%`,
+                    background: `color-mix(in srgb, ${tint} 40%, transparent)`,
+                  }} />
+                  <span className="share-num">{pct(r.share)}</span>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </>
+  )
+}
+
+/** El `kind` del método dicho en español. Es lo que separa «con qué plata pagó»
+ *  de «cómo se llama el método en la tienda»: dos tiendas pueden llamar distinto
+ *  a su datáfono, pero el medio es el mismo. */
+const MEDIO = {
+  WALLET: 'Billetera Fud',
+  CASH: 'Efectivo',
+  CARD: 'Tarjeta',
+  OTHER: 'Otro',
+}
+
 /** Vigilancia de acceso. 401 y 403 van en columnas separadas porque no son lo
  *  mismo: el 401 repetido es alguien probando credenciales; el 403 repetido
  *  sobre muchos recursos es alguien que YA entró y está enumerando lo ajeno. */
@@ -154,7 +221,7 @@ function AuthWatch({ w, rows, ends, tint, onPick }) {
     <table className="plain pickable">
       <thead>
         <tr>
-          <th>Actor</th><th>Rol</th><th className="n">401</th><th className="n">403</th>
+          <th>Actor</th><th>Quién</th><th className="n">401</th><th className="n">403</th>
           <th className="n">Recursos</th><th className="n">IPs</th><th className="n">Último</th>
         </tr>
       </thead>
@@ -164,7 +231,7 @@ function AuthWatch({ w, rows, ends, tint, onPick }) {
             title={`Ver los fallos de ${a.actor}`}
             onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onPick(a.actor))}>
             <td>{corto(a.actor)}</td>
-            <td>{a.role}</td>
+            <td>{a.who || '—'}</td>
             <td className="n">{num(a.auth)}</td>
             <td className={`n ${a.perm >= w.min ? 'danger-text' : ''}`}>{num(a.perm)}</td>
             <td className="n">{num(a.targets)}</td>
@@ -280,6 +347,7 @@ export default function App() {
   const [theme, toggleTheme] = useTheme()
   const [q, setQ] = useState('')
   const [detail, setDetail] = useState(null)  // {metric, preset}
+  const [docs, setDocs] = useState(false)
 
   if (error) return <main><p className="error">Error cargando métricas: {error}</p></main>
   if (!data) return <Skeleton />
@@ -303,6 +371,12 @@ export default function App() {
 
   // Cada paleta se calcula sobre los datos SIN el filtro de texto.
   const colStore = paleta(data.sales_by_store, 'store')
+  const colMethod = paleta(data.revenue_by_method.rows, 'metodo')
+  // El dominio de métodos sale del panel de métodos, no de las tiendas: así el
+  // orden de la leyenda y los slots de color son los mismos en los dos sitios,
+  // y una tienda que solo cobra en efectivo no repinta a las demás.
+  const metodosDom = data.revenue_by_method.rows.map((r) => r.metodo)
+  const negocio = data.customers.find((c) => c.id === filters.customer)
   const colProduct = paleta(data.top_products, 'name')
   const colPayment = paleta(data.payments_by_status, 'status')
   const colOrder = paleta(data.orders_funnel, 'status')
@@ -311,6 +385,7 @@ export default function App() {
   const colOwner = paleta(data.orders_mix.owner, 'payment_owner_type')
   const colDispatch = paleta(data.dispatches, 'status')
 
+  const metodos = filterRows(data.revenue_by_method.rows, q, 'metodo', 'tipo')
   const stores = filterRows(data.sales_by_store, q, 'store')
   const products = filterRows(data.top_products, q, 'name')
   const payments = filterRows(data.payments_by_status.filter((r) => r.n > 0), q, 'status')
@@ -321,7 +396,7 @@ export default function App() {
   const dispatches = filterRows(data.dispatches.filter((r) => r.n > 0), q, 'status')
   const lowStock = filterRows(data.low_stock, q, 'product', 'store')
   const tiempos = filterRows(data.dispatch_times.terminals, q, 'terminal', 'store')
-  const actores = filterRows(data.auth_watch.actors, q, 'actor', 'role')
+  const actores = filterRows(data.auth_watch.actors, q, 'actor', 'who')
   const recursos = filterRows(data.auth_watch.endpoints, q, 'endpoint')
 
   // Buscando, un panel sin coincidencias se oculta en vez de quedar vacío:
@@ -339,9 +414,34 @@ export default function App() {
 
   return (
     <>
-      <TopBar {...{ filters, setFilters, cities: data.cities, stores: data.stores, range: data.range, suggestions, q, setQ, onRefresh: refresh, loading, theme, toggleTheme, sections: SECTIONS }} />
+      <TopBar {...{ filters, setFilters, cities: data.cities, stores: data.stores, customers: data.customers, range: data.range, suggestions, q, setQ, onRefresh: refresh, loading, theme, toggleTheme, onDocs: () => setDocs(true), sections: SECTIONS }} />
       {/* Al refrescar se mantiene el render anterior atenuado: sin salto de layout. */}
       <main className={loading ? 'stale' : ''}>
+        {/* Qué estás mirando, antes de la primera cifra. Con un customer puesto,
+            todos los números de abajo son de ESTAS tiendas y de ninguna otra;
+            dejarlo implícito es la forma más fácil de leer mal el panel. */}
+        {filters.customer && (
+          <div className="scope-band">
+            <p>
+              <b>{negocio?.name ?? 'Customer seleccionado'}</b>
+              {' · '}{num(data.stores.length)} {data.stores.length === 1 ? 'tienda' : 'tiendas'}
+              {filters.city && ' en la ciudad elegida'}
+            </p>
+            {data.stores.length > 0 && (
+              <div className="chips">
+                {data.stores.map((t) => (
+                  <button key={t.id} className={filters.store === t.id ? 'on' : ''}
+                    title={filters.store === t.id ? 'Quitar el filtro de tienda' : `Ver solo ${t.name}`}
+                    onClick={() => setFilters({
+                      ...filters, store: filters.store === t.id ? '' : t.id,
+                    })}>
+                    {t.name}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         <Section id="resumen" title="Resumen">
         <div className="cards">
           <Card hero label="Ingresos" value={moneyShort(kpis.revenue)} onOpen={() => setDetail({ metric: 'revenue' })}
@@ -406,6 +506,18 @@ export default function App() {
           </ResponsiveContainer>
         </Panel>
 
+        {/* Panel ancho y antes de la grilla: es la cifra que el negocio mira
+            primero, y necesita las cinco columnas para no mentir. */}
+        {show(metodos) && (
+          <Panel title="Cobrado a los usuarios, método a método" wide
+            sub="ventas del período · sin recargas"
+            onOpen={() => setDetail({ metric: 'sales' })}>
+            <ByMethod m={data.revenue_by_method} rows={metodos} colors={colMethod}
+              topups={kpis.topups}
+              onPick={(metodo) => setDetail({ metric: 'sales', preset: { metodo } })} />
+          </Panel>
+        )}
+
         <div className="grid">
           {/* Estados de pago: aquí el color SÍ significa bueno/malo, así que
               usa la paleta de estado — y nunca va solo, la fila lleva su
@@ -418,9 +530,16 @@ export default function App() {
           )}
 
           {show(stores) && (
-            <Panel title="Ventas por tienda" sub={restante(stores) ?? "ingresos cobrados"} onOpen={() => setDetail({ metric: 'revenue' })}>
-              <BarTable rows={top(stores)} label="store" value="total" extra="n" colors={colStore}
-                onRow={(tienda) => setDetail({ metric: 'revenue', preset: { tienda } })} />
+            <Panel title="Ventas por tienda" wide
+              sub={restante(stores) ?? "acumulado de todos los métodos · sin recargas"}
+              onOpen={() => setDetail({ metric: 'sales' })}>
+              {/* Segmentada por método, con la paleta de método: el largo compara
+                  tiendas y el reparto dice de qué vive cada una. Dos tiendas con
+                  la misma venta no son el mismo negocio si una cobra todo en
+                  efectivo y la otra todo por billetera. */}
+              <SegmentedBars rows={top(stores)} label="store" value="total" extra="n"
+                series={metodosDom} colors={colMethod}
+                onRow={(tienda) => setDetail({ metric: 'sales', preset: { tienda } })} />
             </Panel>
           )}
 
@@ -523,6 +642,8 @@ export default function App() {
         <Detail metric={detail.metric} preset={detail.preset} filters={filters}
           tint={CAT[0]} cat={CAT} reload={tick} onClose={() => setDetail(null)} />
       )}
+
+      {docs && <Docs onClose={() => setDocs(false)} />}
     </>
   )
 }

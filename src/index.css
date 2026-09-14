@@ -325,6 +325,13 @@ button.card { font: inherit; text-align: left; cursor: pointer; }
 .chips button:hover { border-color: var(--brand); color: var(--brand); }
 .chips button.on { background: var(--brand); border-color: var(--brand); color: #fff; }
 
+/* Banda de ámbito: lo que estás mirando, antes de la primera cifra. No es un
+   panel — no lleva sombra ni radio grande — porque no es un dato, es contexto. */
+.scope-band { border: 1px solid var(--line); border-left: 3px solid var(--brand); background: var(--surface); padding: 12px 14px; margin-bottom: 16px; }
+.scope-band p { margin: 0 0 10px; font-size: 13px; color: var(--muted); }
+.scope-band b { color: var(--ink); }
+.scope-band .chips { margin-bottom: 0; }
+
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(94px, 1fr)); gap: 8px; margin-bottom: 14px; }
 .stats div { background: var(--surface-2); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; }
 .stats span { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
@@ -344,11 +351,110 @@ button.card { font: inherit; text-align: left; cursor: pointer; }
 .col-filters label.on select { border-color: var(--brand); color: var(--brand); font-weight: 600; }
 .col-filters .ghost { padding: 6px 10px; }
 
+/* El recuadro que traduce el desplegable: qué significa cada etiqueta y el id
+   completo del valor elegido. `user-select: all` para copiarlo de un clic. */
+.filter-note {
+  border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2);
+  padding: 8px 10px; margin: -4px 0 14px; font-size: 12px; color: var(--muted);
+  max-width: 620px;
+}
+.filter-note p { margin: 0 0 4px; }
+.filter-note p:last-child { margin-bottom: 0; }
+.filter-note b { color: var(--ink); font-weight: 600; }
+.filter-note code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--ink); user-select: all; word-break: break-all;
+}
+
+/* Nota bajo un titular: la cifra del panel y la del KPI son distintas a
+   propósito, y una diferencia sin explicar se lee como un error del panel. */
+.panel-note { color: var(--muted); font-size: 12px; margin: -6px 0 12px; max-width: 78ch; }
+/* Participación: barra DENTRO de la celda. Un porcentaje suelto no se compara;
+   con la barra, la proporción se ve antes de leer el número. */
+.share { position: relative; min-width: 130px; }
+.share-bar { position: absolute; left: 0; top: 50%; transform: translateY(-50%); height: 16px; border-radius: 3px; }
+.share-num { position: relative; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--muted); }
+
+/* Barra segmentada: el largo es el total y el reparto va como degradado de
+   tramos duros sobre la misma barra de siempre (ver SegmentedBars). Los rótulos
+   van en una capa encima, alineados a la derecha de SU tramo: pegados al borde
+   quedan lejos de la etiqueta de la fila, que se dibuja a la izquierda. */
+/* Columna propia para la etiqueta: los tramos van a color pleno y encima de
+   ellos no se lee. Se recorta con puntos suspensivos — el nombre completo está
+   en el `title` de la fila. */
+.bars td.bar-name { white-space: nowrap; padding-right: 10px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+.seg-tags { position: absolute; inset: 2px auto 2px 0; display: flex; pointer-events: none; }
+.seg-tag {
+  display: flex; align-items: center; justify-content: flex-end;
+  padding-right: 6px; overflow: hidden; white-space: nowrap;
+  font-size: 10.5px; font-weight: 600; font-variant-numeric: tabular-nums;
+}
+/* Leyenda arriba: en fila y envolviendo, para que se lea ANTES que las barras. */
+.legend.top { flex-direction: row; flex-wrap: wrap; gap: 4px 16px; margin-bottom: 10px; color: var(--muted); font-size: 12px; }
+.legend.top li { gap: 6px; }
+
+/* Restaurada: la perdí en un reemplazo de texto de esta misma sesión. Sin ella
+   la tabla ancha del cajón desbordaba la página en vez de scrollar sola. */
 .scroll-x { overflow-x: auto; }
 .scroll-x .plain td, .scroll-x .plain th { white-space: nowrap; }
 .plain td .dot { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
 
 @media (max-width: 700px) { .drawer { padding: 14px; } }
+
+/* ── Guías (drawer de info) ─────────────────────────────────────── */
+/* Prosa, no datos: ancho de lectura acotado y aire entre bloques. Reusa
+   `.plain`, `.sub` y `.tabs` del resto del panel — una guía que se ve como
+   otra aplicación se lee como si no fuera de aquí. */
+.doc { font-size: 13.5px; line-height: 1.65; max-width: 76ch; }
+.doc > * + * { margin-top: 14px; }
+.doc p, .doc li { margin: 0; }
+.doc .sub { margin: 22px 0 8px; }
+.doc table.plain { font-size: 13px; }
+.doc table.plain td { vertical-align: top; }
+.doc-lede { color: var(--muted); font-size: 14px; }
+.doc-note { border: 1px solid var(--line); border-left: 3px solid var(--brand); padding: 12px 14px; background: var(--surface-2); }
+.doc code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: var(--hover); padding: 1px 5px; border-radius: 3px; }
+.doc pre {
+  margin: 10px 0; padding: 12px 14px; overflow-x: auto; border: 1px solid var(--line);
+  background: var(--surface-2); border-radius: 6px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; line-height: 1.6;
+}
+.doc-steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: 16px; }
+.doc-steps > li { padding-left: 4px; }
+.doc-steps > li::marker { color: var(--brand); font-weight: 700; }
+.doc-steps ul { margin: 8px 0 0; padding-left: 1.1em; display: flex; flex-direction: column; gap: 5px; }
+.doc-steps table.plain { margin-top: 10px; }
+.doc-list { margin: 0; padding-left: 1.15em; display: flex; flex-direction: column; gap: 6px; }
+.doc-list li::marker { color: var(--muted); }
+.doc-traps { margin: 0; display: flex; flex-direction: column; gap: 14px; }
+.doc-traps dt { font-weight: 600; margin-bottom: 3px; }
+.doc-traps dd { margin: 0; color: var(--muted); }
+.doc-foot { color: var(--muted); }
+/* El estado va como etiqueta, no como texto suelto: en una guía sobre estados
+   son la entidad de la que se habla. */
+.doc .chip {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px;
+  padding: 1px 6px; border-radius: 3px; white-space: nowrap;
+  background: var(--hover); color: var(--muted); border: 1px solid var(--line);
+}
+.doc .chip.ok { color: var(--ok); border-color: currentColor; }
+.doc .chip.hold { color: var(--warn); border-color: currentColor; }
+.doc .chip.bad { color: var(--danger); border-color: currentColor; }
+
+/* La parte accionable de una guía: se separa del texto con superficie propia,
+   porque leer y actuar no son lo mismo y aquí actuar toca dinero. */
+.doc-tool { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: var(--surface-2); }
+.doc-tool > * + * { margin-top: 10px; }
+.doc-tool-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.doc-tool-head .ghost { padding: 6px 12px; font-weight: 600; }
+.doc-tool-sub { color: var(--muted); font-size: 12.5px; }
+.doc-tool table.plain { background: var(--surface); }
+.doc-tool .ghost { font-size: 12px; padding: 4px 8px; white-space: nowrap; }
+.doc-err { color: var(--muted); max-width: 260px; overflow-wrap: anywhere; }
+.doc-msg { border-left: 3px solid var(--ok); padding-left: 10px; color: var(--ink); }
+.doc-msg.bad { border-left-color: var(--danger); }
+.doc-recon { border: 1px dashed var(--line); padding: 12px; border-radius: 6px; background: var(--surface); }
+.doc-recon pre { margin: 8px 0; }
 
 /* ── Skeleton ──────────────────────────────────────────────────── */
 .sk { background: linear-gradient(90deg, var(--surface) 25%, var(--hover) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border: 1px solid var(--line); }
