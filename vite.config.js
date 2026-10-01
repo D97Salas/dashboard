@@ -19,6 +19,7 @@ export default defineConfig({
     },
   },
   server: {
-    proxy: { '/admin': 'http://127.0.0.1:8000' },
+    // /static/images: el logo lo sirve Django; sin esto npm run dev lo pierde.
+    proxy: { '/admin': 'http://127.0.0.1:8000', '/static/images': 'http://127.0.0.1:8000' },
   },
 })

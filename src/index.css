@@ -15,13 +15,6 @@
   --danger: #c0392b;
   --hover: #eef2f5;
   --series-1: #2a78d6;   /* slot categórico 1, validado — ver palette.js */
-  /* Solo para el logotipo. Van aparte de `--brand`/`--ok` a propósito: esos son
-     cromo de interfaz y están desaturados para no competir con los datos, y por
-     eso un degradado entre ellos casi no se movía. Estos dos sí están saturados
-     porque el logo SÍ debe destacar. No son slots de gráfico: no pasan por
-     `validate_palette`. */
-  --logo-a: #2a78d6;     /* azul */
-  --logo-b: #0fa06a;     /* verde */
   --shadow: 0 1px 2px rgba(16, 34, 48, .05), 0 1px 3px rgba(16, 34, 48, .04);
   --radius: 12px;
 }
@@ -38,9 +31,6 @@
   --danger: #e57366;
   --hover: #1f2b36;
   --series-1: #3987e5;
-  /* Más claros y vivos: contra el fondo oscuro los del tema claro se hunden. */
-  --logo-a: #4f9bff;
-  --logo-b: #2fd694;
   --shadow: 0 1px 3px rgba(0, 0, 0, .35);
 }
 
@@ -60,12 +50,21 @@ button, input, select { font: inherit; color: inherit; }
    pestañas y los selects caían al del navegador, que cambia entre plataformas.
    Las reglas específicas de más abajo lo siguen ganando por especificidad. */
 :focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+/* Campos (select, texto, fecha): el anillo va SOBRE su borde, no 2px afuera.
+   Afuera quedaba un segundo borde redondeado alrededor del propio, y en estos
+   controles el foco aparece también con el mouse, no solo con teclado. Con
+   :focus y no :focus-visible por eso mismo: el select se enfoca al hacer clic.
+   Casillas y radios quedan con el anillo global: no tienen borde propio. */
+:is(select, textarea, input:not([type='checkbox'], [type='radio'])):focus {
+  outline: 2px solid color-mix(in srgb, var(--brand) 40%, transparent);
+  outline-offset: -1px; border-color: var(--brand);
+}
 
 /* ── Topbar sticky ───────────────────────────────────────────────
    z-index alto y fondo opaco: sin esto las barras de Recharts se
    dibujan por encima al hacer scroll. */
 .topbar {
-  position: sticky; top: 0; z-index: 50;
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
   background: color-mix(in srgb, var(--surface) 88%, transparent);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line);
@@ -75,44 +74,30 @@ button, input, select { font: inherit; color: inherit; }
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 .topbar-row.filters { padding-top: 0; padding-bottom: 10px; }
-/* Logotipo. El foco es "Fud" — el negocio — y "Dashboard" pasa a ser la
-   etiqueta que lo acompaña: pequeña, en versalitas y en el gris de apoyo. La
-   jerarquía la hace el CONTRASTE (12px normal gris vs 26px negra con color),
-   no el tamaño solo; por eso "Dashboard" baja en vez de que "Fud" suba más.
-   `line-height` fijo y `align-items: baseline` mantienen la fila en ~28px:
-   la topbar es sticky y las secciones anclan contra su alto. */
+/* Filtros plegables (TopBar). Transición de `grid-template-rows` 1fr → 0fr:
+   anima a alto automático sin medir nada en JS. Se despliega con el mouse
+   encima o con el foco dentro, y se vuelve a plegar al salir de las dos. */
+.topbar-more { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .25s ease; }
+.topbar-more > div { min-height: 0; overflow: hidden; }
+.topbar.compact:not(:hover):not(:focus-within) .topbar-more { grid-template-rows: 0fr; }
+/* Con la barra plegada desplegándose encima del contenido, una sombra la
+   separa: sin ella los filtros parecen parte del primer panel. */
+.topbar.compact:is(:hover, :focus-within) { box-shadow: 0 12px 28px rgba(10, 18, 26, .14); }
+/* Logotipo: la imagen de marca manda y "Dashboard" es la etiqueta que la
+   acompaña, pequeña, en versalitas y en el gris de apoyo. Alto fijo de 30px:
+   la topbar es sticky y las secciones anclan contra su alto. El PNG está
+   recortado y a 2x (static/images/logo_letras_fud_recorte.png). */
 .topbar h1 {
-  margin: 0; white-space: nowrap; line-height: 1.1;
-  display: inline-flex; align-items: baseline; gap: 8px;
+  margin: 0; white-space: nowrap; line-height: 1;
+  display: inline-flex; align-items: center; gap: 10px;
   font-size: 12px; font-weight: 600; letter-spacing: .12em;
   text-transform: uppercase; color: var(--muted);
 }
-.topbar h1 span {
-  font-size: 26px; font-weight: 800; letter-spacing: -.035em;
-  text-transform: none; color: var(--logo-a);
-  /* Azul → verde, saturados. Dos paradas bastan porque el salto de tono ahora
-     es grande; con los grises de interfaz hacían falta tres y aun así no se
-     veía. */
-  background: linear-gradient(100deg, var(--logo-a), var(--logo-b));
-  /* Y esta es la que hace el trabajo: interpolar en OKLCH en vez de sRGB. Entre
-     azul y verde, sRGB pasa por un teal apagado — mezcla los canales y baja el
-     croma justo en el medio, que es donde cae la "u". OKLCH mantiene el croma y
-     el recorrido se ve. Va como segunda declaración a propósito: el navegador
-     que no la entienda se queda con la de arriba, que ya funciona. */
-  background: linear-gradient(100deg in oklch, var(--logo-a), var(--logo-b));
-  background-clip: text;
-}
-/* El degradado solo se activa donde se puede recortar sobre el texto. Sin la
-   guarda, un navegador sin soporte dejaría `color: transparent` y el nombre
-   desaparecería. */
-@supports (background-clip: text) or (-webkit-background-clip: text) {
-  .topbar h1 span { -webkit-background-clip: text; color: transparent; }
-}
+.topbar h1 img { height: 30px; width: auto; display: block; }
 
 .search { position: relative; display: flex; align-items: center; flex: 1; min-width: 180px; max-width: 400px; margin-left: 8px; }
 .search svg { position: absolute; left: 10px; color: var(--muted); pointer-events: none; }
 .search input { width: 100%; padding: 7px 30px 7px 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
-.search input:focus { outline: 2px solid color-mix(in srgb, var(--brand) 40%, transparent); outline-offset: -1px; border-color: var(--brand); }
 .clear { position: absolute; right: 6px; border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 18px; line-height: 1; padding: 0 4px; }
 
 .ghost {
@@ -129,6 +114,7 @@ button, input, select { font: inherit; color: inherit; }
 }
 .filters .sep { color: var(--muted); }
 .presets { display: flex; gap: 4px; margin-left: auto; }
+.jump .presets button { font-size: 12.5px; padding: 4px 11px; }
 .presets button {
   padding: 6px 12px; border: 1px solid var(--line); border-radius: 8px;
   background: var(--surface); cursor: pointer; color: var(--muted);
@@ -242,8 +228,8 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 .warn .headline { margin-bottom: 8px; }
 /* ── Secciones ──────────────────────────────────────────────────
    `scroll-margin-top` deja el título por debajo de la topbar
-   sticky al saltar desde el índice; sin eso el ancla queda tapada. */
-.sect { scroll-margin-top: 132px; margin-top: 32px; }
+   PLEGADA (~59px): con cualquier scroll la barra se pliega. */
+.sect { scroll-margin-top: 76px; margin-top: 32px; }
 .sect:first-child { margin-top: 0; }
 /* El último hijo de una sección ya no aporta su margen: `.cards` (20px),
    `.panel` (16px) y `.grid` (16px) se sumaban a los 32px de la siguiente y el
@@ -259,7 +245,8 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
 }
 .sect-title small { text-transform: none; letter-spacing: 0; font-weight: 400; font-size: 11px; }
-.jump { padding-top: 0; padding-bottom: 8px; gap: 6px; }
+.jump { padding-top: 0; padding-bottom: 10px; }
+.jump nav { display: flex; flex-wrap: wrap; gap: 6px; }
 .jump a {
   font-size: 12px; padding: 3px 10px; border-radius: 999px;
   border: 1px solid var(--line); color: var(--muted); text-decoration: none;
@@ -455,6 +442,167 @@ button.card { font: inherit; text-align: left; cursor: pointer; }
 .doc-msg.bad { border-left-color: var(--danger); }
 .doc-recon { border: 1px dashed var(--line); padding: 12px; border-radius: 6px; background: var(--surface); }
 .doc-recon pre { margin: 8px 0; }
+
+/* ── Tesorería (Treasury.jsx) ────────────────────────────────────
+   Prefijo `tz-` para no chocar con los paneles. Reusa .drawer, .tabs, .ghost,
+   .empty y .sk: tiene que leerse como parte de este panel, no como otra app.
+   Va antes del skeleton a propósito: `.sk` tiene que ganarle el fondo a
+   `.tz-hero` mientras carga. */
+.drawer.tz { width: min(820px, 100%); background: var(--bg); }
+.tz-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+.tz-head .tabs { margin-bottom: 0; flex: 1; }
+.tz-count {
+  display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px;
+  border-radius: 999px; background: var(--warn); color: #fff; font-size: 11px; font-weight: 700;
+}
+.tz-store {
+  padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+  font-weight: 600; min-width: 220px; max-width: 100%;
+}
+
+.tz-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+.tz-grid > .tz-hero { grid-column: 1 / -1; }
+
+.tz-hero {
+  position: relative; overflow: hidden; border-radius: 16px; padding: 20px 22px;
+  border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow);
+}
+/* Un halo suave detrás de la cifra, no un degradado de fondo entero: el número
+   tiene que seguir siendo lo más contrastado de la tarjeta. */
+.tz-hero:not(.sk)::before {
+  content: ""; position: absolute; inset: -40% -10% auto auto; width: 60%; aspect-ratio: 1;
+  background: radial-gradient(circle, color-mix(in srgb, var(--ok) 16%, transparent), transparent 65%);
+  pointer-events: none;
+}
+.tz-hero > * { position: relative; }
+.tz-hero.sk { height: 230px; }
+.tz-hero.sk.short { height: 120px; }
+.tz-hero-top { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tz-kicker { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.tz-big { font-size: 40px; font-weight: 700; letter-spacing: -.03em; line-height: 1.1; margin: 6px 0 2px; }
+.tz-hero-sub { color: var(--muted); margin: 0 0 18px; font-size: 13px; }
+
+.tz-net { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+.tz-net i { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+.tz-net.open { color: var(--ok); background: color-mix(in srgb, var(--ok) 12%, transparent); }
+.tz-net.open i { animation: tzpulse 2s infinite; }
+.tz-net.closed { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.tz-net.off { color: var(--muted); background: var(--hover); }
+.tz-badges { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.tz-off { align-self: center; font-size: 12px; color: var(--muted); }
+.tz-net.done { color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent); }
+@keyframes tzpulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 60%, transparent); }
+  70%, 100% { box-shadow: 0 0 0 6px transparent; }
+}
+
+.tz-bar { display: flex; gap: 3px; height: 12px; border-radius: 999px; overflow: hidden; background: var(--hover); }
+.tz-bar span { min-width: 4px; transition: flex-grow .4s ease; }
+.tz-legend { list-style: none; padding: 0; margin: 12px 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 18px; }
+.tz-legend li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.tz-legend li.zero { opacity: .55; }
+.tz-legend i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.tz-legend b { margin-left: auto; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.tz-empty { display: flex; gap: 16px; align-items: center; }
+.tz-empty p { margin: 4px 0 0; color: var(--muted); }
+.tz-empty.bad .tz-empty-icon { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+.tz-empty.bad::before { display: none; }
+.tz-empty-icon {
+  flex: none; width: 48px; height: 48px; border-radius: 14px; display: grid; place-items: center;
+  font-size: 22px; font-weight: 700; color: var(--brand); background: color-mix(in srgb, var(--brand) 12%, transparent);
+}
+
+.tz-card {
+  display: flex; flex-direction: column; gap: 10px; padding: 18px; border-radius: 16px;
+  border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow);
+}
+.tz-card h3 { margin: 0; font-size: 14px; }
+.tz-card.danger { border-color: color-mix(in srgb, var(--danger) 30%, var(--line)); }
+.tz-help { margin: 0; color: var(--muted); font-size: 12.5px; }
+.tz-card label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 600; color: var(--muted); }
+.tz-card label b { color: var(--ink); }
+.tz-card input, .tz-w-form input, .tz-w-form textarea {
+  padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2);
+  font-weight: 500; color: var(--ink); resize: vertical;
+}
+.tz-money:focus-within {
+  outline: 2px solid color-mix(in srgb, var(--brand) 40%, transparent); outline-offset: -1px; border-color: var(--brand);
+}
+.tz-money { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2); }
+.tz-money span { padding-left: 12px; color: var(--muted); font-weight: 600; }
+.tz-card .tz-money input { border: 0; outline: 0; background: none; flex: 1; min-width: 0; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.tz-primary, .tz-danger {
+  padding: 9px 16px; border: 0; border-radius: 10px; cursor: pointer; font-weight: 600; color: #fff;
+  transition: transform .12s, filter .12s, box-shadow .12s;
+}
+.tz-primary { background: var(--brand); box-shadow: 0 4px 14px color-mix(in srgb, var(--brand) 30%, transparent); }
+.tz-danger { background: var(--danger); box-shadow: 0 4px 14px color-mix(in srgb, var(--danger) 25%, transparent); }
+/* En oscuro --brand y --danger son claros: el blanco encima no llega a AA. */
+:root[data-theme='dark'] .tz-primary, :root[data-theme='dark'] .tz-danger { color: #0b1620; }
+.tz-primary:hover:not(:disabled), .tz-danger:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.06); }
+.tz-primary:disabled, .tz-danger:disabled { opacity: .45; cursor: not-allowed; box-shadow: none; }
+
+.tz-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.tz-seg { display: inline-flex; flex-wrap: wrap; padding: 3px; gap: 2px; border-radius: 11px; background: var(--hover); border: 1px solid var(--line); }
+.tz-seg button { border: 0; background: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; color: var(--muted); font-weight: 500; font-size: 13px; }
+.tz-seg button.on { background: var(--surface); color: var(--ink); box-shadow: var(--shadow); }
+
+.tz-switch { position: relative; display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); cursor: pointer; }
+.tz-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.tz-switch span { width: 32px; height: 18px; border-radius: 999px; background: var(--line); position: relative; transition: background .15s; }
+.tz-switch span::after {
+  content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%;
+  background: #fff; transition: transform .15s; box-shadow: 0 1px 2px rgba(0, 0, 0, .25);
+}
+.tz-switch input:checked + span { background: var(--brand); }
+.tz-switch input:checked + span::after { transform: translateX(14px); }
+.tz-switch input:focus-visible + span { outline: 2px solid var(--brand); outline-offset: 2px; }
+.tz-switch input:disabled + span { opacity: .5; }
+
+.tz-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.tz-w { padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); box-shadow: var(--shadow); animation: tzin .2s ease-out; }
+@keyframes tzin { from { transform: translateY(4px); } to { transform: none; } }
+.tz-w-main { display: grid; grid-template-columns: minmax(130px, auto) 1fr auto; gap: 16px; align-items: center; }
+.tz-w-amount { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
+.tz-w-store { font-size: 12.5px; color: var(--muted); }
+.tz-w-bank { font-size: 13px; overflow-wrap: anywhere; }
+.tz-w-bank span { display: block; color: var(--muted); font-size: 12px; }
+.tz-w-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.tz-w-date { font-size: 12px; color: var(--muted); }
+.tz-w-note { margin: 10px 0 0; font-size: 12.5px; color: var(--muted); }
+.tz-w-actions { display: flex; gap: 8px; margin-top: 12px; }
+.tz-w-form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.tz-w-form .tz-w-actions { margin-top: 0; }
+.tz-check { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.tz-check input { width: 16px; height: 16px; accent-color: var(--brand); }
+@media (max-width: 640px) {
+  .tz-w-main { grid-template-columns: 1fr; gap: 8px; }
+  .tz-w-side { align-items: center; flex-direction: row; }
+}
+
+.tz-pill { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.tz-pill.req { color: var(--warn); background: color-mix(in srgb, var(--warn) 14%, transparent); }
+.tz-pill.paid { color: var(--ok); background: color-mix(in srgb, var(--ok) 13%, transparent); }
+.tz-pill.rej { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
+
+.tz-toasts {
+  position: fixed; right: 20px; bottom: 20px; z-index: 120;
+  display: flex; flex-direction: column; gap: 8px; width: min(380px, calc(100% - 32px));
+}
+.tz-toast {
+  display: flex; align-items: flex-start; gap: 10px; padding: 12px 12px 12px 14px; border-radius: 12px;
+  background: var(--surface); border: 1px solid var(--line); box-shadow: 0 10px 30px rgba(10, 18, 26, .18);
+  animation: tzup .22s ease-out;
+}
+.tz-toast p { margin: 0; flex: 1; font-size: 13px; }
+.tz-toast button { border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 18px; line-height: 1; }
+.tz-toast-dot { flex: none; width: 8px; height: 8px; margin-top: 6px; border-radius: 50%; }
+.tz-toast.ok .tz-toast-dot { background: var(--ok); }
+.tz-toast.bad { border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
+.tz-toast.bad .tz-toast-dot { background: var(--danger); }
+@keyframes tzup { from { transform: translateY(10px); } to { transform: none; } }
 
 /* ── Skeleton ──────────────────────────────────────────────────── */
 .sk { background: linear-gradient(90deg, var(--surface) 25%, var(--hover) 50%, var(--surface) 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border: 1px solid var(--line); }

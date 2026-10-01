@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { dur, money, num } from './api'
-import { BarTable, SegmentedBars } from './components'
+import { BarTable, SegmentedBars, useBackdropClose } from './components'
 import { NO_COLOR, stableColors, statusColor } from './palette'
 
 const AXIS = { fontSize: 11, tickLine: false, axisLine: false, stroke: 'var(--muted)' }
@@ -155,6 +155,7 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
   // filtro de columna quita filas; si el color se reasignara, las que quedan
   // cambiarían de tono y parecerían otra cosa.
   const paletas = useRef(new Map())
+  const backdrop = useBackdropClose(onClose)
 
   useEffect(() => {
     const onEsc = (e) => e.key === 'Escape' && onClose()
@@ -203,7 +204,7 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
   const trazo = propio && propio !== NO_COLOR ? propio : tint
 
   return (
-    <div className="drawer-backdrop" onClick={onClose}>
+    <div className="drawer-backdrop" {...backdrop}>
       <aside className="drawer" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <header>
           <h2>{data?.title ?? 'Cargando…'}</h2>

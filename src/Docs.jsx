@@ -9,6 +9,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { action } from './api'
+import { useBackdropClose } from './components'
 
 const Chip = ({ tone, children }) => <span className={`chip ${tone ?? ''}`}>{children}</span>
 
@@ -545,6 +546,7 @@ export default function Docs({ onClose }) {
   const [id, setId] = useState(DOCS[0].id)
   const doc = DOCS.find((d) => d.id === id) ?? DOCS[0]
   const Body = doc.body
+  const backdrop = useBackdropClose(onClose)
 
   useEffect(() => {
     const onEsc = (e) => e.key === 'Escape' && onClose()
@@ -553,7 +555,7 @@ export default function Docs({ onClose }) {
   }, [onClose])
 
   return (
-    <div className="drawer-backdrop" onClick={onClose}>
+    <div className="drawer-backdrop" {...backdrop}>
       <div className="drawer" onClick={(e) => e.stopPropagation()}>
         <header>
           <h2>{doc.title}</h2>

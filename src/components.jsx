@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { money, num, pct } from './api'
 import { inkOn } from './palette'
 
@@ -14,7 +14,25 @@ export const IconRefresh = () => <Icon d={<><path d="M21 12a9 9 0 1 1-2.6-6.4" /
 export const IconBack = () => <Icon d={<path d="M19 12H5m0 0 6-6m-6 6 6 6" />} />
 export const IconSun = () => <Icon d={<><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>} />
 export const IconInfo = () => <Icon d={<><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 7.6v.1" /></>} />
+export const IconVault = () => <Icon d={<><rect x="3" y="5" width="18" height="14" rx="2.5" /><circle cx="12" cy="12" r="3" /><path d="M12 9v-.5M12 15.5V15M7 19v1.5M17 19v1.5" /></>} />
 export const IconMoon = () => <Icon d={<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />} />
+
+/** Cierra un cajón con clic en el fondo SOLO si el botón se presionó Y se
+ *  soltó sobre el fondo. Un arrastre entre el cajón y el fondo (p. ej.
+ *  seleccionar el texto de un campo y soltar afuera) dispara `click` en el
+ *  fondo, que es el ancestro común, y cerraba el cajón a media edición. */
+export function useBackdropClose(onClose) {
+  const down = useRef(false)
+  const up = useRef(false)
+  return {
+    onMouseDown: (e) => { down.current = e.target === e.currentTarget },
+    onMouseUp: (e) => { up.current = e.target === e.currentTarget },
+    onClick: (e) => {
+      if (down.current && up.current && e.target === e.currentTarget) onClose()
+      down.current = up.current = false
+    },
+  }
+}
 
 export function useTheme() {
   const [theme, setTheme] = useState(() => localStorage.getItem('fud-theme') || 'light')
@@ -254,7 +272,7 @@ const minusDays = (isoDate, n) => {
   return iso(d)
 }
 
-export function TopBar({ filters, setFilters, cities, stores, customers, range, suggestions, q, setQ, onRefresh, loading, theme, toggleTheme, onDocs, sections = [] }) {
+export function TopBar({ filters, setFilters, cities, stores, customers, range, suggestions, q, setQ, onRefresh, loading, theme, toggleTheme, onDocs, onTreasury, sections = [] }) {
   const set = (k) => (e) => setFilters({ ...filters, [k]: e.target.value })
   // Cambiar de ciudad limpia la tienda: la anterior puede no estar en la nueva,
   // y la pareja incompatible devolvería ceros sin explicar por qué.
@@ -279,10 +297,36 @@ export function TopBar({ filters, setFilters, cities, stores, customers, range, 
     return filters.desde === r.desde && filters.hasta === r.hasta
   }
 
+  // Con cualquier scroll se esconden los filtros y queda solo la fila de marca
+  // y botones: desplegados taparían contenido. Vuelven solo arriba del todo, o
+  // con el mouse encima / el foco dentro (CSS :hover / :focus-within).
+  const [compact, setCompact] = useState(false)
+  useEffect(() => {
+    const onScroll = () => setCompact(window.scrollY > 0)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  // La barra es `fixed` y deja en el flujo un espaciador de su alto COMPLETO:
+  // si fuera sticky, esconder los filtros subiría el contenido 100px de golpe.
+  // Se miden las filas y no la barra: plegadas conservan su alto natural.
+  const bar = useRef(null)
+  const [height, setHeight] = useState(0)
+  useLayoutEffect(() => {
+    const rows = [...bar.current.querySelectorAll('.topbar-row')]
+    const measure = () => setHeight(rows.reduce((h, r) => h + r.offsetHeight, 0) + 1)
+    const ro = new ResizeObserver(measure)
+    rows.forEach((r) => ro.observe(r))
+    return () => ro.disconnect()
+  }, [])
+
   return (
-    <div className="topbar">
+    <>
+    <div className="topbar-spacer" style={{ height }} />
+    <div ref={bar} className={`topbar ${compact ? 'compact' : ''}`}>
       <div className="topbar-row">
-        <h1>Dashboard <span>Fud</span></h1>
+        <h1><img src="/static/images/logo_letras_fud_recorte.png" alt="Fud" />Dashboard</h1>
         <div className={`search ${q ? 'on' : ''}`}>
           <IconSearch />
           <input list="fud-sug" placeholder="Filtrar tiendas, productos, estados…" value={q}
@@ -300,11 +344,15 @@ export function TopBar({ filters, setFilters, cities, stores, customers, range, 
         </button>
         {/* Las guías van aquí y no en una sección: son de consulta puntual, y una
             sección más empujaría los paneles que sí se miran todos los días. */}
+        <button className="ghost" onClick={onTreasury} title="Garantía y retiros de las tiendas">
+          <IconVault /><span>Tesorería</span>
+        </button>
         <button className="ghost" onClick={onDocs} title="Guías de operación">
           <IconInfo /><span>Guías</span>
         </button>
         <a className="ghost" href="/admin/" title="Volver al admin"><IconBack /><span>Admin</span></a>
       </div>
+      <div className="topbar-more"><div>
       <div className="topbar-row filters">
         <input type="date" value={filters.desde} onChange={set('desde')} />
         <span className="sep">→</span>
@@ -326,6 +374,17 @@ export function TopBar({ filters, setFilters, cities, stores, customers, range, 
           <option value="">Todas las tiendas</option>
           {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
         </select>
+      </div>
+      {/* Secciones y rango de tiempo en la misma fila: las dos son navegación
+          rápida y así la barra desplegada gana una fila de alto. Anclas
+          nativas: con quince paneles el salto directo vale más que un router. */}
+      <div className="topbar-row jump">
+        <nav aria-label="Secciones del dashboard">
+          {/* blur: con el foco puesto, :focus-within dejaría la barra desplegada. */}
+          {sections.map(([id, label]) => (
+            <a key={id} href={`#${id}`} onClick={(e) => e.currentTarget.blur()}>{label}</a>
+          ))}
+        </nav>
         <div className="presets">
           {PRESETS.map(([p, l]) => (
             <button key={l} className={isActive(p) ? 'on' : ''} aria-pressed={isActive(p)}
@@ -333,15 +392,10 @@ export function TopBar({ filters, setFilters, cities, stores, customers, range, 
           ))}
         </div>
       </div>
-      {/* Anclas nativas: con quince paneles el salto directo vale más que
-          cualquier router, y aquí arriba sigue alcanzable con scroll hecho. */}
-      {sections.length > 0 && (
-        <nav className="topbar-row jump" aria-label="Secciones del dashboard">
-          {sections.map(([id, label]) => <a key={id} href={`#${id}`}>{label}</a>)}
-        </nav>
-      )}
+      </div></div>
       {loading && <div className="progress" />}
     </div>
+    </>
   )
 }
 

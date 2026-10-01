@@ -6,6 +6,7 @@ import { dur, filterRows, money, moneyShort, num, pct, useMetrics } from './api'
 import { BarTable, Card, Panel, Section, SegmentedBars, Skeleton, StackedBar, TopBar, useTheme } from './components'
 import Detail from './Detail'
 import Docs from './Docs'
+import Treasury from './Treasury'
 import { CAT_DARK, CAT_LIGHT, SLOTS, stableColors, statusColor } from './palette'
 
 // Índice del salto de la topbar. El orden es el de la página: primero lo que
@@ -348,6 +349,7 @@ export default function App() {
   const [q, setQ] = useState('')
   const [detail, setDetail] = useState(null)  // {metric, preset}
   const [docs, setDocs] = useState(false)
+  const [treasury, setTreasury] = useState(false)
 
   if (error) return <main><p className="error">Error cargando métricas: {error}</p></main>
   if (!data) return <Skeleton />
@@ -414,7 +416,7 @@ export default function App() {
 
   return (
     <>
-      <TopBar {...{ filters, setFilters, cities: data.cities, stores: data.stores, customers: data.customers, range: data.range, suggestions, q, setQ, onRefresh: refresh, loading, theme, toggleTheme, onDocs: () => setDocs(true), sections: SECTIONS }} />
+      <TopBar {...{ filters, setFilters, cities: data.cities, stores: data.stores, customers: data.customers, range: data.range, suggestions, q, setQ, onRefresh: refresh, loading, theme, toggleTheme, onDocs: () => setDocs(true), onTreasury: () => setTreasury(true), sections: SECTIONS }} />
       {/* Al refrescar se mantiene el render anterior atenuado: sin salto de layout. */}
       <main className={loading ? 'stale' : ''}>
         {/* Qué estás mirando, antes de la primera cifra. Con un customer puesto,
@@ -644,6 +646,10 @@ export default function App() {
       )}
 
       {docs && <Docs onClose={() => setDocs(false)} />}
+
+      {treasury && (
+        <Treasury stores={data.stores} store={filters.store} cat={CAT} onClose={() => setTreasury(false)} />
+      )}
     </>
   )
 }
