@@ -320,24 +320,62 @@ function Events({ e, tint, onPick }) {
   )
 }
 
+const WORKER_STATE = {
+  ok: { tone: 'ok', text: 'Activo' },
+  down: { tone: 'down', text: 'Caído' },
+  never: { tone: 'idle', text: 'Sin latidos registrados' },
+  unknown: { tone: 'idle', text: 'Sin datos' },
+}
+
+/** Los procesos de fondo, siempre arriba y fuera de los filtros.
+ *
+ *  Si el que drena el outbox se detiene, los cobros a wallet dejan de confirmarse
+ *  y el síntoma (cobros en limbo) aparece horas después. Aquí se ve la causa. Un
+ *  worker «sin latidos» no es lo mismo que uno caído: puede no estar desplegado
+ *  en este entorno, así que va en gris y no enciende la alarma. */
+function WorkersBar({ workers }) {
+  const caidos = workers.filter((w) => w.state === 'down').length
+  return (
+    <section className={`workers ${caidos ? 'alarm' : ''}`} role="status" aria-label="Procesos de fondo">
+      <span className="workers-title">Procesos de fondo</span>
+      <ul>
+        {workers.map((w) => {
+          const s = WORKER_STATE[w.state] ?? WORKER_STATE.unknown
+          const vivo = w.state === 'ok' || w.state === 'down'
+          return (
+            <li key={w.worker} className={`worker ${s.tone}`}
+              title={vivo ? `Se da por caído tras ${dur(w.threshold_seconds)} sin latir (corre cada ${dur(w.interval)})` : undefined}>
+              <i />
+              <b>{w.label}</b>
+              <span>{vivo ? `${s.text}, último latido hace ${dur(w.age_seconds)}` : s.text}</span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+// La severidad que manda el backend decide el tono de la tarjeta.
+const ALERT_TONE = { critical: 'danger', warn: 'warn' }
+
+/** El subtítulo viaja tipado: el formato de dinero vive aquí, no en el backend. */
+const alertSub = (sub) => (!sub ? '' : sub.type === 'money' ? money(sub.value) : sub.value)
+
 function Alerts({ a, onOpen }) {
-  // La clave es la misma que la métrica del detalle: la tarjeta y sus filas
-  // salen del mismo queryset en el backend, así el número no puede diferir.
-  const items = [
-    ['limbo_payments', 'Cobros en limbo', a.limbo_payments.n, money(a.limbo_payments.total)],
-    ['outbox_stuck', 'Outbox sin cerrar', a.outbox_stuck.n, `${a.outbox_stuck.exhausted} agotados`],
-    ['allocation_mismatch', 'Allocations descuadradas', a.allocation_mismatch, 'sum ≠ amount'],
-    ['paid_orders_without_allocation', 'Órdenes PAID sin allocation', a.paid_orders_without_allocation, ''],
-    ['topups_stuck', 'Recargas atascadas', a.topups_stuck, ''],
-    ['stale_dispatches', 'Despachos abiertos', a.stale_dispatches, ''],
-  ].filter(([, , n]) => n > 0)
+  // El backend manda TODAS las alertas registradas, también las que están en
+  // cero (el «Estado del día» necesita saber que un grupo está en verde). Aquí
+  // solo se dibujan las que tienen casos. La clave es la misma que la métrica
+  // del detalle: la tarjeta y sus filas salen del mismo queryset, así el número
+  // no puede diferir.
+  const items = a.filter((x) => x.n > 0)
 
   if (!items.length) return <p className="ok">✓ Sin dinero en estados raros</p>
   return (
     <div className="alerts">
-      {items.map(([key, label, n, sub]) => (
-        <Card key={key} tone="danger" label={label} value={num(n)} sub={sub}
-          onOpen={() => onOpen(key)} />
+      {items.map((x) => (
+        <Card key={x.key} tone={ALERT_TONE[x.severity] ?? 'danger'} label={x.label} value={num(x.n)}
+          sub={alertSub(x.sub)} onOpen={() => onOpen(x.key)} />
       ))}
     </div>
   )
@@ -419,6 +457,7 @@ export default function App() {
       <TopBar {...{ filters, setFilters, cities: data.cities, stores: data.stores, customers: data.customers, range: data.range, suggestions, q, setQ, onRefresh: refresh, loading, theme, toggleTheme, onDocs: () => setDocs(true), onTreasury: () => setTreasury(true), sections: SECTIONS }} />
       {/* Al refrescar se mantiene el render anterior atenuado: sin salto de layout. */}
       <main className={loading ? 'stale' : ''}>
+        <WorkersBar workers={data.workers} />
         {/* Qué estás mirando, antes de la primera cifra. Con un customer puesto,
             todos los números de abajo son de ESTAS tiendas y de ninguna otra;
             dejarlo implícito es la forma más fácil de leer mal el panel. */}

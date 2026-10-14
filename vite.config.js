@@ -20,6 +20,7 @@ export default defineConfig({
   },
   server: {
     // /static/images: el logo lo sirve Django; sin esto npm run dev lo pierde.
-    proxy: { '/admin': 'http://127.0.0.1:8000', '/static/images': 'http://127.0.0.1:8000' },
+    // Django cuelga todo bajo /business/ (config/urls.py), incluido el tablero.
+    proxy: { '/business': 'http://127.0.0.1:8000', '/static/images': 'http://127.0.0.1:8000' },
   },
 })

@@ -9,7 +9,7 @@
  * (customer/ciudad) que ya esté puesto arriba.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { action, money } from './api'
+import { action, API_BASE, money } from './api'
 import { useBackdropClose } from './components'
 
 async function get(url) {
@@ -126,7 +126,7 @@ function StoreTab({ storeId, storeName, cat, notify }) {
 
   const load = useCallback(() => {
     setT(null); setErr(null)
-    if (storeId) get(`/admin/dashboard/api/treasury/store/${storeId}/`).then((d) => setT(d.treasury), (e) => setErr(e.message))
+    if (storeId) get(`${API_BASE}api/treasury/store/${storeId}/`).then((d) => setT(d.treasury), (e) => setErr(e.message))
   }, [storeId])
   useEffect(load, [load])
 
@@ -299,7 +299,7 @@ function WithdrawalsTab({ storeId, names, notify, onCount }) {
     setErr(null)
     const q = new URLSearchParams({ status })
     if (only && storeId) q.set('store', storeId)
-    get(`/admin/dashboard/api/treasury/withdrawals/?${q}`).then((d) => {
+    get(`${API_BASE}api/treasury/withdrawals/?${q}`).then((d) => {
       setRows(d.withdrawals)
       if (status === 'REQUESTED' && !only) onCount(d.withdrawals.length)
     }, (e) => setErr(e.message))
@@ -351,7 +351,7 @@ export default function Treasury({ stores, store, cat, onClose }) {
   }, [dismiss])
 
   useEffect(() => {
-    get('/admin/dashboard/api/treasury/withdrawals/?status=REQUESTED')
+    get(`${API_BASE}api/treasury/withdrawals/?status=REQUESTED`)
       .then((d) => setPending(d.withdrawals.length), () => {})
   }, [])
 

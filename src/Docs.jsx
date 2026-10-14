@@ -8,7 +8,7 @@
  * Para agregar una guía: un objeto más en DOCS. Las pestañas salen solas.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { action } from './api'
+import { action, API_BASE } from './api'
 import { useBackdropClose } from './components'
 
 const Chip = ({ tone, children }) => <span className={`chip ${tone ?? ''}`}>{children}</span>
@@ -32,7 +32,7 @@ function OutboxTool() {
   const [abierta, setAbierta] = useState(null)
 
   const cargar = useCallback(() => {
-    fetch('/admin/dashboard/api/detail/outbox_stuck/', { credentials: 'same-origin' })
+    fetch(`${API_BASE}api/detail/outbox_stuck/`, { credentials: 'same-origin' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((d) => setRows(d.rows ?? []))
       .catch((e) => setMsg({ bad: true, text: `No se pudo leer el outbox: ${e.message}` }))

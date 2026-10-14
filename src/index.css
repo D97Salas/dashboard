@@ -150,6 +150,8 @@ button, input, select { font: inherit; color: inherit; }
 .card.accent .card-value { color: var(--ok); }
 .card.danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }
 .card.danger .card-value { color: var(--danger); }
+.card.warn { border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); background: color-mix(in srgb, var(--warn) 6%, var(--surface)); }
+.card.warn .card-value { color: var(--warn); }
 
 /* ── Paneles ───────────────────────────────────────────────────── */
 .panel {
@@ -262,6 +264,25 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 .empty, .error, .ok { color: var(--muted); padding: 14px 2px; margin: 0; }
 .error { color: var(--danger); }
 .ok { color: var(--ok); }
+
+/* Procesos de fondo (latidos). Siempre arriba; se enciende solo si alguno cayó. */
+.workers {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;
+  padding: 10px 14px; margin-bottom: 18px; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+}
+.workers.alarm {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+.workers-title { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 11px; font-weight: 600; }
+.workers ul { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0; padding: 0; }
+.worker { display: inline-flex; align-items: center; gap: 6px; }
+.worker i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.worker.ok i { background: var(--ok); }
+.worker.down i { background: var(--danger); }
+.worker span { color: var(--muted); }
+.worker.down b, .worker.down span { color: var(--danger); }
 
 /* ── Tarjetas y paneles clickeables ──────────────────────────── */
 button.card { font: inherit; text-align: left; cursor: pointer; }

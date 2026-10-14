@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { dur, money, num } from './api'
+import { API_BASE, dur, money, num } from './api'
 import { BarTable, SegmentedBars, useBackdropClose } from './components'
 import { NO_COLOR, stableColors, statusColor } from './palette'
 
@@ -169,7 +169,7 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
     setError(null)
     const qs = new URLSearchParams(filters)
     Object.entries(cols).forEach(([k, v]) => v && qs.set(`f_${k}`, v))
-    fetch(`/admin/dashboard/api/detail/${metric}/?${qs}`, { credentials: 'same-origin' })
+    fetch(`${API_BASE}api/detail/${metric}/?${qs}`, { credentials: 'same-origin' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then(setData)
       .catch((e) => setError(e.message))
