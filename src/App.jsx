@@ -264,6 +264,97 @@ function AuthWatch({ w, rows, ends, tint, onPick }) {
   )
 }
 
+/** Bloqueos de PIN de las últimas 24 h (consumidores y cajas), según auth_fud.
+ *  «Sin datos» (auth no respondió) se distingue de «sin bloqueos»: lo primero no es buena noticia. */
+function PinWatch({ w }) {
+  if (!w.available) return <p className="empty">Sin datos: auth_fud no respondió, no se pueden ver los bloqueos de PIN.</p>
+  const global = w.scopable
+  if (!global && w.terminals.length === 0) {
+    return <p className="empty">Sin cajas bloqueadas en este ámbito. Los bloqueos de consumidores no se pueden atribuir a una tienda — quita el filtro para verlos.</p>
+  }
+  if (global && !w.locks_window) return <p className="ok">✓ Sin bloqueos de PIN en las últimas {w.window_hours} h</p>
+  return (
+    <>
+      {global && (
+        <p className={`headline ${w.hard_locks_window ? 'bad' : ''}`}>
+          <b>{num(w.locks_window)}</b> bloqueos en {w.window_hours} h ({num(w.locks_last_hour)} en la última hora)
+          {w.hard_locks_window > 0 && ` · ${num(w.hard_locks_window)} bloqueo(s) duro(s): requieren intervención`}.
+        </p>
+      )}
+      {w.terminals.length > 0 && (
+        <table className="plain">
+          <thead><tr><th>Caja</th><th>Tienda</th><th className="n">Bloqueos</th><th className="n">Último</th></tr></thead>
+          <tbody>
+            {w.terminals.map((t, i) => (
+              <tr key={`${t.terminal}-${i}`}>
+                <td>{t.terminal}</td><td>{t.store || '—'}</td>
+                <td className="n danger-text">{num(t.locks)}</td>
+                <td className="n">{t.last ? t.last.slice(0, 16).replace('T', ' ') : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {global && w.repeat_users.length > 0 && (
+        <>
+          <h3 className="sub">Consumidores que insisten (enmascarados)</h3>
+          <table className="plain">
+            <thead><tr><th>Usuario</th><th className="n">Bloqueos</th><th className="n">Duros</th><th className="n">Último</th></tr></thead>
+            <tbody>
+              {w.repeat_users.map((u, i) => (
+                <tr key={`${u.user}-${i}`}>
+                  <td>{u.user}</td><td className="n">{num(u.locks)}</td>
+                  <td className={`n ${u.hard_locks ? 'danger-text' : ''}`}>{num(u.hard_locks)}</td>
+                  <td className="n">{u.last ? u.last.slice(0, 16).replace('T', ' ') : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </>
+  )
+}
+
+const DPOP_KIND = {
+  missing: 'Sin header DPoP', bad_signature: 'Firma inválida', jkt_mismatch: 'Clave distinta a la del token',
+  ath_mismatch: 'Proof de otro token', stale: 'Proof vencido', future: 'Proof con fecha futura',
+  method_mismatch: 'Método distinto', uri_mismatch: 'URL distinta', replay: 'Proof repetido (replay)',
+  replay_check_failed: 'Anti-replay no pudo evaluarse', malformed: 'Proof mal formado',
+  bad_typ: 'Tipo de proof inválido', unsupported_alg: 'Algoritmo no permitido',
+  private_key_in_header: 'Clave privada en el header', missing_claims: 'Proof incompleto',
+  body_digest_mismatch: 'Cuerpo distinto al firmado', invalid: 'Inválido',
+}
+
+/** Fallos de DPoP de 24 h. «Bloqueados» (enforce) dejó a alguien sin operar; «observados»
+ *  (log_only) se dejó pasar: es lo que hay que revisar antes de pasar a enforce. */
+function DpopWatch({ w }) {
+  if (!w.available) return <p className="empty">Sin datos: Redis no respondió, no se pueden ver los fallos de DPoP.</p>
+  if (!w.scopable) return <p className="empty">Los fallos de DPoP no se pueden atribuir a una tienda o ciudad — quita el filtro para verlos.</p>
+  const tabla = (rows) => (
+    <table className="plain">
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.kind}><td>{DPOP_KIND[r.kind] || r.kind}</td><td className="n strong">{num(r.n)}</td></tr>
+        ))}
+      </tbody>
+    </table>
+  )
+  if (!w.blocked_total && !w.observed_total) {
+    return <p className="ok">✓ Sin fallos de DPoP en las últimas {w.window_hours} h (modo {w.mode})</p>
+  }
+  return (
+    <>
+      <p className={`headline ${w.blocked_total ? 'bad' : ''}`}>
+        Modo <b>{w.mode}</b> · <b>{num(w.blocked_total)}</b> rechazados · <b>{num(w.observed_total)}</b> observados sin bloquear
+        (últimas {w.window_hours} h).
+      </p>
+      {w.blocked_total > 0 && <><h3 className="sub">Rechazados</h3>{tabla(w.blocked)}</>}
+      {w.observed_total > 0 && <><h3 className="sub">Observados (no bloquearon)</h3>{tabla(w.observed)}</>}
+    </>
+  )
+}
+
 /** Usuarios DISTINTOS, que no es lo que dice «Tipo de pagador»: veinte órdenes
  *  pueden ser veinte personas o una que volvió veinte veces, y para dimensionar
  *  el sistema hace falta la segunda cifra. */
@@ -520,6 +611,14 @@ export default function App() {
           onOpen={() => setDetail({ metric: 'auth_failures' })}>
           <AuthWatch w={data.auth_watch} rows={top(actores)} ends={top(recursos)} tint={CAT[0]}
             onPick={(actor) => setDetail({ metric: 'auth_failures', preset: { actor } })} />
+        </Panel>
+
+        <Panel title="Bloqueos de PIN" sub="consumidores y cajas · últimas 24 h · datos de auth_fud">
+          <PinWatch w={data.pin_watch} />
+        </Panel>
+
+        <Panel title="Fallos de DPoP" sub="prueba de posesión de la clave del dispositivo · últimas 24 h">
+          <DpopWatch w={data.dpop_watch} />
         </Panel>
         </Section>
 
