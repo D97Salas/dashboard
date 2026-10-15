@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { API_BASE, dur, money, num } from './api'
-import { BarTable, SegmentedBars, useBackdropClose } from './components'
+import { BarTable, SegmentedBars, Toasts, useBackdropClose, useToasts } from './components'
+import Reconcile from './Reconcile'
 import { NO_COLOR, stableColors, statusColor } from './palette'
 
 const AXIS = { fontSize: 11, tickLine: false, axisLine: false, stroke: 'var(--muted)' }
@@ -143,7 +144,7 @@ function FilterNote({ filters = [], cols }) {
   )
 }
 
-export default function Detail({ metric, preset, filters, tint, cat, reload, onClose }) {
+export default function Detail({ metric, preset, filters, tint, cat, reload, onChanged, onClose }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState(null)
   const [chartId, setChartId] = useState(null)
@@ -151,6 +152,11 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
   // Filtros de columna. Arrancan en lo que traiga `preset` (p.ej. abrir el
   // detalle ya filtrado por el estado en el que se hizo clic).
   const [cols, setCols] = useState(preset ?? {})
+  // Fila cuyo panel (comando copiable o conciliación) está desplegado, y la que se acaba de copiar.
+  const [abierta, setAbierta] = useState(null)
+  const [copiada, setCopiada] = useState(null)
+  // Avisos del resultado de las acciones de las filas (copiar, conciliar), bien o mal.
+  const { toasts, dismiss, notify } = useToasts()
   // Color por etiqueta, fijado la PRIMERA vez que se ve cada gráfico. Aplicar un
   // filtro de columna quita filas; si el color se reasignara, las que quedan
   // cambiarían de tono y parecerían otra cosa.
@@ -176,6 +182,29 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
     // `reload` es el contador del botón de refrescar: sin él en las dependencias
     // el cajón abierto se quedaba con los datos de cuando se abrió.
   }, [metric, filters, cols, reload])
+
+  // Un dato nuevo (filtro, refresco, acción aplicada) puede reordenar las filas: el
+  // panel abierto apuntaría a otra. Se cierra para que nunca actúe sobre la fila equivocada.
+  useEffect(() => { setAbierta(null) }, [data])
+
+  // Una fila puede traer `copy` (texto para pegar en la shell: no se ejecuta desde
+  // aquí a propósito, p. ej. marcar pagado exige el ledger de wallet como prueba) o
+  // `reconcile` (el id de un cobro que se puede conciliar preguntándole a wallet).
+  const hayAcciones = data?.rows?.some((r) => r.copy || r.reconcile)
+  const copiar = (i, texto) => {
+    const aviso = () => {
+      setCopiada(i)
+      setTimeout(() => setCopiada((actual) => (actual === i ? null : actual)), 2000)
+    }
+    if (!navigator.clipboard) {
+      notify('Este navegador no deja copiar desde aquí. Selecciona el texto y cópialo a mano.', true)
+      return
+    }
+    navigator.clipboard.writeText(texto).then(
+      () => { aviso(); notify('Comando copiado al portapapeles.') },
+      () => notify('No se pudo copiar. Selecciona el texto y cópialo a mano.', true),
+    )
+  }
 
   const chart = data?.charts?.find((c) => c.id === chartId) ?? data?.charts?.[0]
   // La paleta se guarda por DIMENSIÓN, no por gráfico: las líneas del temporal y
@@ -272,19 +301,49 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
               <div className="scroll-x">
                 <table className="plain">
                   <thead>
-                    <tr>{data.columns.map((c) => (
-                      <th key={c.key} className={c.type === 'money' || c.type === 'num' ? 'n' : ''}>{c.label}</th>
-                    ))}</tr>
+                    <tr>
+                      {data.columns.map((c) => (
+                        <th key={c.key} className={c.type === 'money' || c.type === 'num' ? 'n' : ''}>{c.label}</th>
+                      ))}
+                      {hayAcciones && <th />}
+                    </tr>
                   </thead>
                   <tbody>
                     {data.rows.map((r, i) => (
-                      <tr key={i}>
-                        {data.columns.map((c) => (
-                          <td key={c.key} className={c.type === 'money' || c.type === 'num' ? 'n' : ''}>
-                            {(fmt[c.type] ?? fmt.text)(r[c.key])}
-                          </td>
-                        ))}
-                      </tr>
+                      <Fragment key={i}>
+                        <tr>
+                          {data.columns.map((c) => (
+                            <td key={c.key} className={c.type === 'money' || c.type === 'num' ? 'n' : ''}>
+                              {(fmt[c.type] ?? fmt.text)(r[c.key])}
+                            </td>
+                          ))}
+                          {hayAcciones && (
+                            <td>
+                              {(r.copy || r.reconcile) && (
+                                <button className="btn btn-outline btn-sm"
+                                  onClick={() => setAbierta(abierta === i ? null : i)}>
+                                  {abierta === i ? 'Ocultar' : r.reconcile ? 'Conciliar' : 'Comando'}
+                                </button>
+                              )}
+                            </td>
+                          )}
+                        </tr>
+                        {abierta === i && (r.copy || r.reconcile) && (
+                          <tr className="row-copy">
+                            <td colSpan={data.columns.length + 1}>
+                              {r.copy && (
+                                <>
+                                  <pre>{r.copy}</pre>
+                                  <button className="btn btn-primary btn-sm" onClick={() => copiar(i, r.copy)}>
+                                    {copiada === i ? 'Copiado' : 'Copiar comando'}
+                                  </button>
+                                </>
+                              )}
+                              {r.reconcile && <Reconcile pt={r.reconcile} onApplied={onChanged} onNotify={notify} />}
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
                     ))}
                   </tbody>
                 </table>
@@ -296,6 +355,7 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
           </>
         )}
       </aside>
+      <Toasts items={toasts} dismiss={dismiss} />
     </div>
   )
 }

@@ -10,7 +10,7 @@
  */
 import { useCallback, useEffect, useState } from 'react'
 import { action, API_BASE, money } from './api'
-import { useBackdropClose } from './components'
+import { Toasts, useBackdropClose, useToasts } from './components'
 
 async function get(url) {
   const r = await fetch(url, { credentials: 'same-origin' })
@@ -61,20 +61,6 @@ const STATUS = {
 const Pill = ({ s }) => {
   const [label, tone] = STATUS[s] ?? [s, '']
   return <span className={`tz-pill ${tone}`}>{label}</span>
-}
-
-function Toasts({ items, dismiss }) {
-  return (
-    <div className="tz-toasts" aria-live="polite" onClick={(e) => e.stopPropagation()}>
-      {items.map((t) => (
-        <div key={t.id} className={`tz-toast ${t.bad ? 'bad' : 'ok'}`} role="status">
-          <span className="tz-toast-dot" />
-          <p>{t.text}</p>
-          <button onClick={() => dismiss(t.id)} title="Cerrar">×</button>
-        </div>
-      ))}
-    </div>
-  )
 }
 
 /** Cómo se reparte el dinero de la tienda. Cada tramo lleva su cifra visible:
@@ -339,16 +325,10 @@ export default function Treasury({ stores, store, cat, onClose }) {
   const [tab, setTab] = useState('store')
   const [storeId, setStoreId] = useState(store || stores[0]?.id || '')
   const [pending, setPending] = useState(null)
-  const [toasts, setToasts] = useState([])
   const names = Object.fromEntries(stores.map((s) => [s.id, s.name]))
   const backdrop = useBackdropClose(onClose)
 
-  const dismiss = useCallback((id) => setToasts((ts) => ts.filter((t) => t.id !== id)), [])
-  const notify = useCallback((text, bad = false) => {
-    const id = Math.random()
-    setToasts((ts) => [...ts, { id, text, bad }])
-    setTimeout(() => dismiss(id), bad ? 9000 : 5000)
-  }, [dismiss])
+  const { toasts, dismiss, notify } = useToasts()
 
   useEffect(() => {
     get(`${API_BASE}api/treasury/withdrawals/?status=REQUESTED`)

@@ -370,7 +370,7 @@ function Alerts({ a, onOpen }) {
   // no puede diferir.
   const items = a.filter((x) => x.n > 0)
 
-  if (!items.length) return <p className="ok">✓ Sin dinero en estados raros</p>
+  if (!items.length) return <p className="ok">✓ Sin alertas</p>
   return (
     <div className="alerts">
       {items.map((x) => (
@@ -681,7 +681,7 @@ export default function App() {
 
       {detail && (
         <Detail metric={detail.metric} preset={detail.preset} filters={filters}
-          tint={CAT[0]} cat={CAT} reload={tick} onClose={() => setDetail(null)} />
+          tint={CAT[0]} cat={CAT} reload={tick} onChanged={refresh} onClose={() => setDetail(null)} />
       )}
 
       {docs && <Docs onClose={() => setDocs(false)} />}

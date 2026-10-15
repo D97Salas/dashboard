@@ -109,6 +109,27 @@ button, input, select { font: inherit; color: inherit; }
 .ghost:hover { color: var(--brand); border-color: var(--brand); background: var(--hover); }
 .ghost:disabled { opacity: .5; cursor: default; }
 
+/* Botones de ACCIÓN: se leen contra el fondo. Los `.ghost` quedan para controles
+   secundarios (cerrar, filtros); una acción que cambia algo no puede parecerse a eso.
+   Deshabilitado = apagado, gris y con el cursor prohibido: no debe confundirse con activo. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 14px; border: 1.5px solid transparent; border-radius: 9px;
+  font: inherit; font-weight: 600; line-height: 1.2; white-space: nowrap; cursor: pointer;
+  transition: transform .12s, filter .12s, box-shadow .12s, background .12s;
+}
+.btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.07); }
+.btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; filter: grayscale(.6); }
+.btn-sm { padding: 5px 11px; font-size: 12.5px; border-radius: 8px; }
+.btn-primary { background: var(--brand); color: #fff; box-shadow: 0 3px 10px color-mix(in srgb, var(--brand) 32%, transparent); }
+.btn-ok { background: var(--ok); color: #fff; box-shadow: 0 3px 10px color-mix(in srgb, var(--ok) 30%, transparent); }
+.btn-danger { background: var(--danger); color: #fff; box-shadow: 0 3px 10px color-mix(in srgb, var(--danger) 30%, transparent); }
+.btn-outline { background: var(--surface); color: var(--brand); border-color: var(--brand); }
+.btn-outline:hover:not(:disabled) { background: color-mix(in srgb, var(--brand) 12%, var(--surface)); filter: none; }
+/* En oscuro --brand, --ok y --danger son claros: el blanco encima no llega a AA. */
+:root[data-theme='dark'] .btn-primary, :root[data-theme='dark'] .btn-ok, :root[data-theme='dark'] .btn-danger { color: #0b1620; }
+
 .filters input, .filters select {
   padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
 }
@@ -152,6 +173,29 @@ button, input, select { font: inherit; color: inherit; }
 .card.danger .card-value { color: var(--danger); }
 .card.warn { border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); background: color-mix(in srgb, var(--warn) 6%, var(--surface)); }
 .card.warn .card-value { color: var(--warn); }
+
+/* Comando copiable de una fila del detalle (p. ej. resolver un cobro QR a mano). */
+tr.row-copy td { background: var(--surface-2); padding: 12px; }
+/* «Conciliar con wallet» dentro del cajón (Reconcile.jsx). */
+.reconcile { display: grid; gap: 8px; }
+.reconcile p { margin: 0; }
+.reconcile .msg { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.reconcile .msg.ok { border-color: var(--ok); }
+.reconcile .msg.bad { border-color: var(--danger); color: var(--danger); }
+.reconcile .row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.reconcile label { display: grid; gap: 4px; flex: 1; min-width: 240px; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.reconcile .hint { font-weight: 500; font-size: 12px; color: var(--muted); }
+.reconcile .hint.ok { color: var(--ok); }
+.reconcile .hint.falta { color: var(--warn); }
+.reconcile input:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.reconcile input {
+  padding: 6px 8px; font: inherit; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+}
+tr.row-copy pre {
+  margin: 0 0 8px; padding: 10px; overflow-x: auto; white-space: pre; font-size: 12px;
+  border: 1px dashed var(--line); border-radius: 6px; background: var(--surface);
+}
 
 /* ── Paneles ───────────────────────────────────────────────────── */
 .panel {
