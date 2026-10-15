@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { computeStatus, goToArea, headline } from './status'
 import {
   Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -12,7 +13,7 @@ import { CAT_DARK, CAT_LIGHT, SLOTS, stableColors, statusColor } from './palette
 // Índice del salto de la topbar. El orden es el de la página: primero lo que
 // obliga a actuar (alertas), después lo que se consulta.
 const SECTIONS = [
-  ['resumen', 'Resumen'], ['alertas', 'Alertas'], ['ventas', 'Ventas'],
+  ['estado', 'Estado'], ['resumen', 'Resumen'], ['alertas', 'Alertas'], ['ventas', 'Ventas'],
   ['operacion', 'Operación'], ['sistema', 'Sistema'],
 ]
 
@@ -278,7 +279,7 @@ function PinWatch({ w }) {
       {global && (
         <p className={`headline ${w.hard_locks_window ? 'bad' : ''}`}>
           <b>{num(w.locks_window)}</b> bloqueos en {w.window_hours} h ({num(w.locks_last_hour)} en la última hora)
-          {w.hard_locks_window > 0 && ` · ${num(w.hard_locks_window)} bloqueo(s) duro(s): requieren intervención`}.
+          {w.hard_locks_window > 0 && `, ${num(w.hard_locks_window)} bloqueo(s) duro(s) que requieren intervención`}.
         </p>
       )}
       {w.terminals.length > 0 && (
@@ -346,7 +347,7 @@ function DpopWatch({ w }) {
   return (
     <>
       <p className={`headline ${w.blocked_total ? 'bad' : ''}`}>
-        Modo <b>{w.mode}</b> · <b>{num(w.blocked_total)}</b> rechazados · <b>{num(w.observed_total)}</b> observados sin bloquear
+        Modo <b>{w.mode}</b>: <b>{num(w.blocked_total)}</b> rechazados y <b>{num(w.observed_total)}</b> observados sin bloquear
         (últimas {w.window_hours} h).
       </p>
       {w.blocked_total > 0 && <><h3 className="sub">Rechazados</h3>{tabla(w.blocked)}</>}
@@ -427,7 +428,7 @@ const WORKER_STATE = {
 function WorkersBar({ workers }) {
   const caidos = workers.filter((w) => w.state === 'down').length
   return (
-    <section className={`workers ${caidos ? 'alarm' : ''}`} role="status" aria-label="Procesos de fondo">
+    <section id="procesos" className={`workers ${caidos ? 'alarm' : ''}`} role="status" aria-label="Procesos de fondo">
       <span className="workers-title">Procesos de fondo</span>
       <ul>
         {workers.map((w) => {
@@ -442,6 +443,27 @@ function WorkersBar({ workers }) {
             </li>
           )
         })}
+      </ul>
+    </section>
+  )
+}
+
+/** Semáforo por área, arriba de todo. Se calcula en `status.js` con lo que ya llegó. */
+function StatusStrip({ data }) {
+  const areas = computeStatus(data)
+  const h = headline(areas)
+  return (
+    <section className={`status ${h.tone}`} aria-label="Estado del día">
+      <p className="status-head"><i />Estado del día: <b>{h.text}</b></p>
+      <ul>
+        {areas.map((a) => (
+          <li key={a.id}>
+            <button type="button" className={`pill ${a.tone}`} onClick={() => goToArea(a.id)}
+              title={a.razones.length ? a.razones.join('; ') : a.tone === 'ok' ? 'Sin novedades' : undefined}>
+              <i />{a.label}{a.n > 0 && <b>{num(a.n)}</b>}
+            </button>
+          </li>
+        ))}
       </ul>
     </section>
   )
@@ -548,7 +570,10 @@ export default function App() {
       <TopBar {...{ filters, setFilters, cities: data.cities, stores: data.stores, customers: data.customers, range: data.range, suggestions, q, setQ, onRefresh: refresh, loading, theme, toggleTheme, onDocs: () => setDocs(true), onTreasury: () => setTreasury(true), sections: SECTIONS }} />
       {/* Al refrescar se mantiene el render anterior atenuado: sin salto de layout. */}
       <main className={loading ? 'stale' : ''}>
-        <WorkersBar workers={data.workers} />
+        <Section id="estado" title="Estado del día" sub="semáforo por área y procesos de fondo">
+          <StatusStrip data={data} />
+          <WorkersBar workers={data.workers} />
+        </Section>
         {/* Qué estás mirando, antes de la primera cifra. Con un customer puesto,
             todos los números de abajo son de ESTAS tiendas y de ninguna otra;
             dejarlo implícito es la forma más fácil de leer mal el panel. */}
@@ -602,6 +627,14 @@ export default function App() {
           <Alerts a={alerts} onOpen={(metric) => setDetail({ metric })} />
         </Panel>
 
+        <Panel title="Bloqueos de PIN" sub="consumidores y cajas, últimas 24 h, datos de auth_fud">
+          <PinWatch w={data.pin_watch} />
+        </Panel>
+
+        <Panel title="Fallos de DPoP" sub="prueba de posesión de la clave del dispositivo, últimas 24 h">
+          <DpopWatch w={data.dpop_watch} />
+        </Panel>
+
         <Panel title="Cambios de comportamiento" sub={`vs los ${trend.span_days} días anteriores`} wide>
           <Trend t={trend} onOpen={setDetail} />
         </Panel>
@@ -611,14 +644,6 @@ export default function App() {
           onOpen={() => setDetail({ metric: 'auth_failures' })}>
           <AuthWatch w={data.auth_watch} rows={top(actores)} ends={top(recursos)} tint={CAT[0]}
             onPick={(actor) => setDetail({ metric: 'auth_failures', preset: { actor } })} />
-        </Panel>
-
-        <Panel title="Bloqueos de PIN" sub="consumidores y cajas · últimas 24 h · datos de auth_fud">
-          <PinWatch w={data.pin_watch} />
-        </Panel>
-
-        <Panel title="Fallos de DPoP" sub="prueba de posesión de la clave del dispositivo · últimas 24 h">
-          <DpopWatch w={data.dpop_watch} />
         </Panel>
         </Section>
 

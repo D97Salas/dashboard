@@ -689,3 +689,21 @@ button.card { font: inherit; text-align: left; cursor: pointer; }
   .search { order: 3; max-width: none; margin-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Estado del día: un semáforo por área. Gris = no se sabe (nunca verde por omisión). */
+.status { padding: 10px 14px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 13px; }
+.status.danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); background: color-mix(in srgb, var(--danger) 7%, var(--surface)); }
+.status.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 7%, var(--surface)); }
+.status-head { margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.status-head i, .pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.status.ok .status-head i, .pill.ok i { background: var(--ok); }
+.status.warn .status-head i, .pill.warn i { background: var(--warn); }
+.status.danger .status-head i, .pill.danger i { background: var(--danger); }
+.status ul { display: flex; flex-wrap: wrap; gap: 6px 8px; list-style: none; margin: 0; padding: 0; }
+.pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.pill:hover { background: var(--hover); }
+.pill b { font-weight: 600; }
+.pill.danger { border-color: var(--danger); }
+.pill.warn { border-color: var(--warn); }
+.pill.unknown { color: var(--muted); }
+#procesos { scroll-margin-top: 76px; }
