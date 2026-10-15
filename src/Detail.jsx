@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { API_BASE, dur, money, num } from './api'
+import { action, API_BASE, dur, money, num } from './api'
 import { BarTable, SegmentedBars, Toasts, useBackdropClose, useToasts } from './components'
 import Reconcile from './Reconcile'
 import { NO_COLOR, stableColors, statusColor } from './palette'
@@ -190,7 +190,26 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
   // Una fila puede traer `copy` (texto para pegar en la shell: no se ejecuta desde
   // aquí a propósito, p. ej. marcar pagado exige el ledger de wallet como prueba) o
   // `reconcile` (el id de un cobro que se puede conciliar preguntándole a wallet).
-  const hayAcciones = data?.rows?.some((r) => r.copy || r.reconcile)
+  const hayAcciones = data?.rows?.some((r) => r.copy || r.reconcile || r.actions?.length)
+
+  // Acciones de un clic: `r.actions` en una fila, `data.actions` para todo el conjunto.
+  // Cada una es `{name, label, payload, confirm?}` y el backend la valida contra la misma
+  // regla que la alerta, así que aquí no se decide nada: se confirma, se manda y se avisa.
+  // Mientras una corre, las demás quedan deshabilitadas (no se pisan dos llamadas a auth).
+  const [ejecutando, setEjecutando] = useState(null)
+  const claveAccion = (a) => `${a.name}:${JSON.stringify(a.payload)}`
+  const ejecutar = (a) => {
+    if (a.confirm && !window.confirm(a.confirm)) return
+    setEjecutando(claveAccion(a))
+    action(a.name, a.payload)
+      .then((d) => { notify(d.message ?? 'Listo.'); onChanged?.() }, (e) => notify(e.message, true))
+      .finally(() => setEjecutando(null))
+  }
+  const botonAccion = (a, i) => (
+    <button key={i} className="btn btn-primary btn-sm" disabled={ejecutando !== null} onClick={() => ejecutar(a)}>
+      {ejecutando === claveAccion(a) ? 'Trabajando…' : a.label}
+    </button>
+  )
   const copiar = (i, texto) => {
     const aviso = () => {
       setCopiada(i)
@@ -275,6 +294,10 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
 
             <Stats s={data.stats} unit={data.stats_unit} />
 
+            {data.actions?.length > 0 && data.total > 0 && (
+              <div className="bulk-actions">{data.actions.map(botonAccion)}</div>
+            )}
+
             <div className="tabs">
               <button className={tab === 'grafico' ? 'on' : ''} onClick={() => setTab('grafico')}>Gráficos</button>
               <button className={tab === 'tabla' ? 'on' : ''} onClick={() => setTab('tabla')}>
@@ -319,12 +342,15 @@ export default function Detail({ metric, preset, filters, tint, cat, reload, onC
                           ))}
                           {hayAcciones && (
                             <td>
-                              {(r.copy || r.reconcile) && (
-                                <button className="btn btn-outline btn-sm"
-                                  onClick={() => setAbierta(abierta === i ? null : i)}>
-                                  {abierta === i ? 'Ocultar' : r.reconcile ? 'Conciliar' : 'Comando'}
-                                </button>
-                              )}
+                              <div className="row-actions">
+                                {(r.copy || r.reconcile) && (
+                                  <button className="btn btn-outline btn-sm"
+                                    onClick={() => setAbierta(abierta === i ? null : i)}>
+                                    {abierta === i ? 'Ocultar' : r.reconcile ? 'Conciliar' : 'Comando'}
+                                  </button>
+                                )}
+                                {r.actions?.map(botonAccion)}
+                              </div>
                             </td>
                           )}
                         </tr>

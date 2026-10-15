@@ -173,6 +173,13 @@ button, input, select { font: inherit; color: inherit; }
 .card.danger .card-value { color: var(--danger); }
 .card.warn { border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); background: color-mix(in srgb, var(--warn) 6%, var(--surface)); }
 .card.warn .card-value { color: var(--warn); }
+/* `info`: algo que conviene auditar, no una falla. Neutro, con el acento de la marca. */
+.card.info { border-color: color-mix(in srgb, var(--brand) 30%, var(--line)); background: color-mix(in srgb, var(--brand) 5%, var(--surface)); }
+.card.info .card-value { color: var(--brand); }
+
+/* Acciones de un clic del cajón: por fila y para todo el conjunto. */
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.bulk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
 
 /* Comando copiable de una fila del detalle (p. ej. resolver un cobro QR a mano). */
 tr.row-copy td { background: var(--surface-2); padding: 12px; }

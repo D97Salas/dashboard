@@ -357,7 +357,7 @@ function WorkersBar({ workers }) {
 }
 
 // La severidad que manda el backend decide el tono de la tarjeta.
-const ALERT_TONE = { critical: 'danger', warn: 'warn' }
+const ALERT_TONE = { critical: 'danger', warn: 'warn', info: 'info' }
 
 /** El subtítulo viaja tipado: el formato de dinero vive aquí, no en el backend. */
 const alertSub = (sub) => (!sub ? '' : sub.type === 'money' ? money(sub.value) : sub.value)
@@ -491,6 +491,10 @@ export default function App() {
           <Card tone="accent" label="Comisión plataforma" value={money(kpis.commission)}
             onOpen={() => setDetail({ metric: 'commission' })} sub="lo que gana Fud" />
           <Card label="Recargas" value={moneyShort(kpis.topups)} onOpen={() => setDetail({ metric: 'topups' })} />
+          {/* Lo que las promos descontaron en órdenes pagadas, y cuánto pesa sobre las ventas.
+              Un salto aquí suele ser una promo mal configurada (p. ej. 90 % por accidente). */}
+          <Card label="Descuentos" value={moneyShort(kpis.discounts)} sub={`${kpis.discounts_pct}% de las ventas`}
+            onOpen={() => setDetail({ metric: 'discounts' })} />
           <Card label="Ticket promedio" value={money(kpis.ticket_avg)} onOpen={() => setDetail({ metric: 'ticket_avg' })} />
           <Card label="Órdenes" value={num(kpis.orders)} delta={trend.orders.delta}
             onOpen={() => setDetail({ metric: 'orders' })}
