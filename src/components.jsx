@@ -342,7 +342,7 @@ export function TopBar({ filters, setFilters, cities, stores, customers, range, 
   const [height, setHeight] = useState(0)
   useLayoutEffect(() => {
     const rows = [...bar.current.querySelectorAll('.topbar-row')]
-    const measure = () => setHeight(rows.reduce((h, r) => h + r.offsetHeight, 0) + 1)
+    const measure = () => setHeight(rows.reduce((h, r) => h + r.offsetHeight, 0) + 13)
     const ro = new ResizeObserver(measure)
     rows.forEach((r) => ro.observe(r))
     return () => ro.disconnect()
