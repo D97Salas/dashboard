@@ -265,6 +265,83 @@ function AuthWatch({ w, rows, ends, tint, onPick }) {
   )
 }
 
+/** Límites de peticiones: quién choca contra los rate limits, por usuario y por
+ *  dispositivo. Por IP no sirve: en un colegio cientos de celulares salen por una.
+ *  Un usuario con varios dispositivos es una cuenta compartida o robada; un
+ *  dispositivo con varios usuarios es un celular prestado… o un script probando cuentas. */
+function ThrottleWatch({ w, users, devices, scopes, tint, onPick }) {
+  if (!w.scopable) {
+    return <p className="empty">Los límites de peticiones no se pueden atribuir a una tienda o ciudad — quita el filtro para verlos.</p>
+  }
+  if (!w.total) return <p className="ok">✓ Nadie topó los límites de peticiones en el período</p>
+
+  const fila = (key, label, onClick, celdas) => (
+    <tr key={key} onClick={onClick} tabIndex={0} role="button" title={label}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onClick())}>
+      {celdas}
+    </tr>
+  )
+  const ultimo = (v) => (v ? v.slice(0, 16).replace('T', ' ') : '—')
+
+  return (
+    <>
+      <p className={`headline ${w.flagged ? 'bad' : ''}`}>
+        <b>{num(w.total)}</b> peticiones cortadas por límite en el período.
+        {w.flagged > 0 && ` ${num(w.flagged)} usuario(s) o dispositivo(s) con ${w.min} o más.`}
+      </p>
+      {users.length > 0 && (
+        <>
+          <h3 className="sub">Usuarios</h3>
+          <table className="plain pickable">
+            <thead>
+              <tr><th>Usuario</th><th>Quién</th><th className="n">Rechazos</th>
+                <th className="n">Límites</th><th className="n">Dispositivos</th><th className="n">Último</th></tr>
+            </thead>
+            <tbody>
+              {users.map((u) => fila(u.user, `Ver los rechazos de ${u.user}`, () => onPick({ usuario: u.user }), (
+                <>
+                  <td>{corto(u.user)}</td>
+                  <td>{u.who || '—'}</td>
+                  <td className={`n ${u.flag ? 'danger-text' : ''}`}>{num(u.n)}</td>
+                  <td className="n">{num(u.scopes)}</td>
+                  <td className={`n ${u.devices > 1 ? 'danger-text' : ''}`}>{num(u.devices)}</td>
+                  <td className="n">{ultimo(u.last)}</td>
+                </>
+              )))}
+            </tbody>
+          </table>
+        </>
+      )}
+      {devices.length > 0 && (
+        <>
+          <h3 className="sub">Dispositivos</h3>
+          <table className="plain pickable">
+            <thead>
+              <tr><th>Dispositivo</th><th className="n">Rechazos</th><th className="n">Usuarios</th><th className="n">Último</th></tr>
+            </thead>
+            <tbody>
+              {devices.map((d) => fila(d.device, `Ver los rechazos de ${d.device}`, () => onPick({ dispositivo: d.device }), (
+                <>
+                  <td>{corto(d.device)}</td>
+                  <td className={`n ${d.flag ? 'danger-text' : ''}`}>{num(d.n)}</td>
+                  <td className={`n ${d.users > 1 ? 'danger-text' : ''}`}>{num(d.users)}</td>
+                  <td className="n">{ultimo(d.last)}</td>
+                </>
+              )))}
+            </tbody>
+          </table>
+        </>
+      )}
+      {scopes.length > 0 && (
+        <>
+          <h3 className="sub">Límites más topados</h3>
+          <BarTable rows={scopes} label="scope" value="n" format={num} colors={() => tint} />
+        </>
+      )}
+    </>
+  )
+}
+
 /** Bloqueos de PIN de las últimas 24 h (consumidores y cajas), según auth_fud.
  *  «Sin datos» (auth no respondió) se distingue de «sin bloqueos»: lo primero no es buena noticia. */
 function PinWatch({ w }) {
@@ -551,6 +628,9 @@ export default function App() {
   const tiempos = filterRows(data.dispatch_times.terminals, q, 'terminal', 'store')
   const actores = filterRows(data.auth_watch.actors, q, 'actor', 'who')
   const recursos = filterRows(data.auth_watch.endpoints, q, 'endpoint')
+  const limUsers = filterRows(data.throttle_watch.users, q, 'user', 'who')
+  const limDevices = filterRows(data.throttle_watch.devices, q, 'device')
+  const limScopes = filterRows(data.throttle_watch.scopes, q, 'scope')
 
   // Buscando, un panel sin coincidencias se oculta en vez de quedar vacío:
   // ocho cajas con "Sin datos" leen como si el buscador estuviera roto.
@@ -644,6 +724,14 @@ export default function App() {
           onOpen={() => setDetail({ metric: 'auth_failures' })}>
           <AuthWatch w={data.auth_watch} rows={top(actores)} ends={top(recursos)} tint={CAT[0]}
             onPick={(actor) => setDetail({ metric: 'auth_failures', preset: { actor } })} />
+        </Panel>
+
+        <Panel title="Límites de peticiones" wide
+          sub="quién topa los rate limits (auth y business) en el período · clic en una fila para ver sus rechazos"
+          onOpen={() => setDetail({ metric: 'throttle_denials' })}>
+          <ThrottleWatch w={data.throttle_watch} users={top(limUsers)} devices={top(limDevices)}
+            scopes={top(limScopes)} tint={CAT[0]}
+            onPick={(preset) => setDetail({ metric: 'throttle_denials', preset })} />
         </Panel>
         </Section>
 
