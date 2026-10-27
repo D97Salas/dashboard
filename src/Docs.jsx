@@ -8,7 +8,7 @@
  * Para agregar una guía: un objeto más en DOCS. Las pestañas salen solas.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { action } from './api'
+import { action, API_BASE } from './api'
 import { useBackdropClose } from './components'
 
 const Chip = ({ tone, children }) => <span className={`chip ${tone ?? ''}`}>{children}</span>
@@ -22,8 +22,9 @@ const fecha = (iso) => (iso ? iso.slice(0, 16).replace('T', ' ') : '—')
  * clave de idempotencia: no pueden inventar un pago, el peor caso es que wallet
  * repita la respuesta que ya dio. Finalizar o declarar fallido NO está aquí a
  * propósito — eso exige mirar el ledger de wallet, y un formulario para teclear
- * un ledger_id sería un botón para marcar PAID sin prueba. Para eso, el panel
- * entrega los ids exactos y el comando se corre en la shell.
+ * un ledger_id sería un botón para marcar PAID sin prueba. Para eso está «Conciliar»
+ * en el cajón de Cobros en limbo (le pregunta a wallet, no se teclea nada); lo demás
+ * se corre en la shell con los ids exactos que entrega el panel.
  */
 function OutboxTool() {
   const [rows, setRows] = useState(null)
@@ -32,7 +33,7 @@ function OutboxTool() {
   const [abierta, setAbierta] = useState(null)
 
   const cargar = useCallback(() => {
-    fetch('/admin/dashboard/api/detail/outbox_stuck/', { credentials: 'same-origin' })
+    fetch(`${API_BASE}api/detail/outbox_stuck/`, { credentials: 'same-origin' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((d) => setRows(d.rows ?? []))
       .catch((e) => setMsg({ bad: true, text: `No se pudo leer el outbox: ${e.message}` }))
@@ -61,7 +62,7 @@ function OutboxTool() {
     <div className="doc-tool">
       <div className="doc-tool-head">
         <b>Herramientas</b>
-        <button className="ghost" onClick={drenar} disabled={busy}>
+        <button className="btn btn-primary" onClick={drenar} disabled={busy}>
           {busy ? 'Trabajando…' : 'Drenar ahora'}
         </button>
       </div>
@@ -90,12 +91,12 @@ function OutboxTool() {
                 <td className="doc-err">{r.error}</td>
                 <td>
                   {r.estado === 'IN_PROGRESS' && (
-                    <button className="ghost" disabled={busy} onClick={() => reprogramar(r.id)}>
+                    <button className="btn btn-outline btn-sm" disabled={busy} onClick={() => reprogramar(r.id)}>
                       Reprogramar
                     </button>
                   )}
                   {r.estado === 'FAILED' && (
-                    <button className="ghost" onClick={() => setAbierta(abierta === r.id ? null : r.id)}>
+                    <button className="btn btn-outline btn-sm" onClick={() => setAbierta(abierta === r.id ? null : r.id)}>
                       Datos para reconciliar
                     </button>
                   )}
@@ -118,7 +119,7 @@ ref:   ${r.ref}`
             <p><b>Reconciliación manual.</b> Verifica primero en el ledger de wallet con esta clave; después
               sigue el paso 6 con estos ids.</p>
             <pre>{datos}</pre>
-            <button className="ghost" onClick={() => navigator.clipboard?.writeText(datos)}>Copiar</button>
+            <button className="btn btn-outline btn-sm" onClick={() => navigator.clipboard?.writeText(datos)}>Copiar</button>
           </div>
         )
       })()}
@@ -339,8 +340,9 @@ row.save(update_fields=["status", "updated_at"])`}</pre>
 
         <dt>El outbox no está en el admin de Django</dt>
         <dd>Pagos, recargas y asignaciones sí; el outbox no. Se lee desde el cajón de esta alerta o
-          desde la shell, y cualquier cambio es por shell. Eso es bueno: no hay un botón que marque
-          pagado sin pasar por el ledger.</dd>
+          desde la shell. Cambiarlo se hace con «Drenar», «Reprogramar» o «Conciliar» (que le pregunta
+          a wallet), o por shell. Eso es bueno: no hay un botón que marque pagado sin pasar por el
+          ledger.</dd>
       </dl>
 
       <h3 className="sub">Referencia</h3>
@@ -379,6 +381,16 @@ function Reconciliar() {
         <b>La regla, y no tiene excepciones.</b> El ledger de wallet decide, tú transcribes. Nunca al
         revés. Aprobar un pago porque «seguro sí se cobró» es exactamente lo que el outbox entero
         existe para impedir: el cliente reclama, y el registro dice que pagó.
+      </div>
+
+      <div className="doc-note">
+        <b>Atajo desde el tablero.</b> En el cajón de <b>Cobros en limbo</b>, las capturas de terminal
+        que esperan a un humano traen un botón <b>Conciliar</b>. Pregunta a wallet (solo lectura) y te
+        dice qué haría; al aplicar pide un motivo, vuelve a preguntar y cierra el pago según lo que
+        wallet responda. No eliges el resultado ni tecleas ningún ledger, y nunca vuelve a cobrar. Si
+        el último intento fue hace menos de 10 minutos te pide esperar: wallet aún podría estar
+        confirmando el débito. Los cobros por QR no traen el botón: siguen por shell con
+        <code> resolve_qr_payment</code>, que sí exige el ledger como prueba.
       </div>
 
       <h3 className="sub">¿Estás en el documento correcto?</h3>

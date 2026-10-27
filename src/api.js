@@ -1,5 +1,22 @@
 import { useCallback, useEffect, useState } from 'react'
 
+const meta = (name) => document.querySelector(`meta[name="${name}"]`)?.content
+
+/** Raíz de las rutas del tablero en el backend, con la barra final.
+ *
+ *  Django sirve todo bajo `/business/` (`config/urls.py`), así que una ruta
+ *  absoluta sin ese prefijo da 404. No se usan rutas relativas a la página
+ *  porque con `npm run dev` Vite sirve en `/` y se resolverían a `/api/...`.
+ *  Si el despliegue cuelga el tablero de otro prefijo, se construye con
+ *  `VITE_DASHBOARD_BASE=/otro/prefijo/admin/dashboard/ npm run build`.
+ *
+ *  En producción la inyecta la plantilla de Django (`<meta name="dashboard-base">`),
+ *  así sigue a `ADMIN_URL_PATH` sin recompilar. Con `npm run dev` no hay plantilla:
+ *  valen el env y el default. */
+export const API_BASE = (meta('dashboard-base') || import.meta.env.VITE_DASHBOARD_BASE || '/business/admin/dashboard/').replace(/\/?$/, '/')
+/** Nombre de la cookie CSRF: en producción es `business_csrftoken`, no `csrftoken`. */
+const CSRF_COOKIE = meta('csrf-cookie') || 'csrftoken'
+
 /** El peso no lleva centavos, PERO un monto chico que sí los tiene deja de ser
  *  cierto al redondearlo: una comisión de 0,32 se dibujaba «$0», y el total de
  *  0,52 «$1» — tres filas en cero que sumaban uno. El panel se contradecía solo
@@ -59,7 +76,7 @@ export function useMetrics() {
     setError(null)
     const qs = new URLSearchParams(filters)
     const startTime = performance.now()
-    fetch(`/admin/dashboard/api/metrics/?${qs}`, { credentials: 'same-origin' })
+    fetch(`${API_BASE}api/metrics/?${qs}`, { credentials: 'same-origin' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
       .then((d) => {
         const endTime = performance.now()
@@ -98,8 +115,8 @@ export const filterRows = (rows, q, ...fields) => {
  * cabecera. Sin esto el primer POST se va en 403 sin explicación visible.
  */
 export async function action(name, body = {}) {
-  const csrf = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/)?.[1] ?? ''
-  const r = await fetch(`/admin/dashboard/api/action/${name}/`, {
+  const csrf = document.cookie.match(new RegExp(`(?:^|;\\s*)${CSRF_COOKIE}=([^;]+)`))?.[1] ?? ''
+  const r = await fetch(`${API_BASE}api/action/${name}/`, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },

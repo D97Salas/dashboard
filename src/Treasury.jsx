@@ -9,8 +9,8 @@
  * (customer/ciudad) que ya esté puesto arriba.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { action, money } from './api'
-import { useBackdropClose } from './components'
+import { action, API_BASE, money } from './api'
+import { Toasts, useBackdropClose, useToasts } from './components'
 
 async function get(url) {
   const r = await fetch(url, { credentials: 'same-origin' })
@@ -63,20 +63,6 @@ const Pill = ({ s }) => {
   return <span className={`tz-pill ${tone}`}>{label}</span>
 }
 
-function Toasts({ items, dismiss }) {
-  return (
-    <div className="tz-toasts" aria-live="polite" onClick={(e) => e.stopPropagation()}>
-      {items.map((t) => (
-        <div key={t.id} className={`tz-toast ${t.bad ? 'bad' : 'ok'}`} role="status">
-          <span className="tz-toast-dot" />
-          <p>{t.text}</p>
-          <button onClick={() => dismiss(t.id)} title="Cerrar">×</button>
-        </div>
-      ))}
-    </div>
-  )
-}
-
 /** Cómo se reparte el dinero de la tienda. Cada tramo lleva su cifra visible:
  *  el tooltip no es el único lugar del dato. */
 function Composition({ t, cat }) {
@@ -126,7 +112,7 @@ function StoreTab({ storeId, storeName, cat, notify }) {
 
   const load = useCallback(() => {
     setT(null); setErr(null)
-    if (storeId) get(`/admin/dashboard/api/treasury/store/${storeId}/`).then((d) => setT(d.treasury), (e) => setErr(e.message))
+    if (storeId) get(`${API_BASE}api/treasury/store/${storeId}/`).then((d) => setT(d.treasury), (e) => setErr(e.message))
   }, [storeId])
   useEffect(load, [load])
 
@@ -299,7 +285,7 @@ function WithdrawalsTab({ storeId, names, notify, onCount }) {
     setErr(null)
     const q = new URLSearchParams({ status })
     if (only && storeId) q.set('store', storeId)
-    get(`/admin/dashboard/api/treasury/withdrawals/?${q}`).then((d) => {
+    get(`${API_BASE}api/treasury/withdrawals/?${q}`).then((d) => {
       setRows(d.withdrawals)
       if (status === 'REQUESTED' && !only) onCount(d.withdrawals.length)
     }, (e) => setErr(e.message))
@@ -339,19 +325,13 @@ export default function Treasury({ stores, store, cat, onClose }) {
   const [tab, setTab] = useState('store')
   const [storeId, setStoreId] = useState(store || stores[0]?.id || '')
   const [pending, setPending] = useState(null)
-  const [toasts, setToasts] = useState([])
   const names = Object.fromEntries(stores.map((s) => [s.id, s.name]))
   const backdrop = useBackdropClose(onClose)
 
-  const dismiss = useCallback((id) => setToasts((ts) => ts.filter((t) => t.id !== id)), [])
-  const notify = useCallback((text, bad = false) => {
-    const id = Math.random()
-    setToasts((ts) => [...ts, { id, text, bad }])
-    setTimeout(() => dismiss(id), bad ? 9000 : 5000)
-  }, [dismiss])
+  const { toasts, dismiss, notify } = useToasts()
 
   useEffect(() => {
-    get('/admin/dashboard/api/treasury/withdrawals/?status=REQUESTED')
+    get(`${API_BASE}api/treasury/withdrawals/?status=REQUESTED`)
       .then((d) => setPending(d.withdrawals.length), () => {})
   }, [])
 

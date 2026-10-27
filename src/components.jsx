@@ -1,6 +1,33 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { money, num, pct } from './api'
 import { inkOn } from './palette'
+
+/** Avisos que confirman el resultado de una acción, bien o mal. Los comparten la
+ *  tesorería y el cajón de detalle. Los errores duran más: hay que alcanzar a leerlos. */
+export function useToasts() {
+  const [toasts, setToasts] = useState([])
+  const dismiss = useCallback((id) => setToasts((ts) => ts.filter((t) => t.id !== id)), [])
+  const notify = useCallback((text, bad = false) => {
+    const id = Math.random()
+    setToasts((ts) => [...ts, { id, text, bad }])
+    setTimeout(() => dismiss(id), bad ? 9000 : 5000)
+  }, [dismiss])
+  return { toasts, dismiss, notify }
+}
+
+export function Toasts({ items, dismiss }) {
+  return (
+    <div className="tz-toasts" aria-live="polite" onClick={(e) => e.stopPropagation()}>
+      {items.map((t) => (
+        <div key={t.id} className={`tz-toast ${t.bad ? 'bad' : 'ok'}`} role="status">
+          <span className="tz-toast-dot" />
+          <p>{t.text}</p>
+          <button onClick={() => dismiss(t.id)} title="Cerrar">×</button>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 /* Iconos inline: 5 glifos no justifican una librería. */
 const Icon = ({ d, ...p }) => (
@@ -315,7 +342,7 @@ export function TopBar({ filters, setFilters, cities, stores, customers, range, 
   const [height, setHeight] = useState(0)
   useLayoutEffect(() => {
     const rows = [...bar.current.querySelectorAll('.topbar-row')]
-    const measure = () => setHeight(rows.reduce((h, r) => h + r.offsetHeight, 0) + 1)
+    const measure = () => setHeight(rows.reduce((h, r) => h + r.offsetHeight, 0) + 13)
     const ro = new ResizeObserver(measure)
     rows.forEach((r) => ro.observe(r))
     return () => ro.disconnect()

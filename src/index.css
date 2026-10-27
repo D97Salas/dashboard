@@ -1,8 +1,8 @@
 :root {
-  --bg: #f5f7f9;
+  --bg: #ebe5dc;          /* papel cálido, de Kerfa; las superficies siguen blancas */
   --surface: #fff;
-  --surface-2: #fafbfc;
-  --line: #e3e8ed;
+  --surface-2: #faf7f2;
+  --line: #e4ddd2;
   --ink: #16232e;
   /* 4.99:1 sobre #fff. Estaba en #6d7f8e = 4.14:1, por debajo de AA — y este
      token no es solo cromo: lo llevan las cifras de la columna `.n`, los ticks
@@ -13,10 +13,19 @@
   --ok: #2e7d5b;
   --warn: #c2871b;
   --danger: #c0392b;
-  --hover: #eef2f5;
+  --hover: #f1ece4;
   --series-1: #2a78d6;   /* slot categórico 1, validado — ver palette.js */
-  --shadow: 0 1px 2px rgba(16, 34, 48, .05), 0 1px 3px rgba(16, 34, 48, .04);
-  --radius: 12px;
+  --shadow: 0 1px 1px rgba(70, 48, 24, .05), 0 18px 36px -26px rgba(70, 48, 24, .35);
+  --shadow-lg: 0 2px 6px rgba(70, 48, 24, .08), 0 40px 80px -30px rgba(50, 34, 16, .45);
+  --radius: 18px;
+  --rim: rgba(255, 255, 255, .9);
+  --glass-hi: rgba(255, 252, 247, .5);
+  --glass-lo: rgba(255, 252, 247, .2);
+  --glass-shine: rgba(255, 255, 255, .55);
+  --glass-edge: rgba(84, 62, 40, .14);
+  --glass-glow: rgba(255, 255, 255, .45);
+  --glass-well: rgba(255, 255, 255, .32);
+  --ease: cubic-bezier(.22, 1, .36, 1);
 }
 :root[data-theme='dark'] {
   --bg: #10161c;
@@ -31,13 +40,21 @@
   --danger: #e57366;
   --hover: #1f2b36;
   --series-1: #3987e5;
-  --shadow: 0 1px 3px rgba(0, 0, 0, .35);
+  --shadow: 0 1px 1px rgba(0, 0, 0, .25), 0 20px 40px -28px rgba(0, 0, 0, .8);
+  --rim: rgba(255, 248, 238, .06);
+  --glass-hi: rgba(36, 42, 50, .55);
+  --glass-lo: rgba(23, 32, 41, .28);
+  --glass-shine: rgba(255, 255, 255, .09);
+  --glass-edge: rgba(255, 248, 238, .14);
+  --glass-glow: rgba(255, 255, 255, .05);
+  --glass-well: rgba(255, 255, 255, .07);
+  --shadow-lg: 0 2px 6px rgba(0, 0, 0, .35), 0 40px 80px -30px rgba(0, 0, 0, .9);
 }
 
 * { box-sizing: border-box; }
 html { color-scheme: light dark; }
 body {
-  font: 14px/1.55 -apple-system, "Segoe UI", system-ui, sans-serif;
+  font: 500 14px/1.55 "Urbanist", -apple-system, "Segoe UI", system-ui, sans-serif;
   margin: 0; background: var(--bg); color: var(--ink);
   -webkit-font-smoothing: antialiased;
 }
@@ -64,13 +81,29 @@ button, input, select { font: inherit; color: inherit; }
    z-index alto y fondo opaco: sin esto las barras de Recharts se
    dibujan por encima al hacer scroll. */
 .topbar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
-  background: color-mix(in srgb, var(--surface) 88%, transparent);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
+  position: fixed; top: 12px; left: 0; right: 0; z-index: 50;
+  width: min(1240px, calc(100% - 32px)); margin: 0 auto;
+  border-radius: 26px; overflow: hidden; isolation: isolate;
+  /* Cristal líquido: fondo casi transparente que desenfoca y satura lo de
+     abajo, brillo especular arriba, borde de luz y sombra larga. */
+  background:
+    linear-gradient(180deg, var(--glass-hi) 0, var(--glass-lo) 55%, var(--glass-lo) 100%);
+  -webkit-backdrop-filter: blur(16px) saturate(1.9) brightness(1.04);
+  backdrop-filter: blur(16px) saturate(1.9) brightness(1.04);
+  border: 1px solid var(--glass-edge);
+  box-shadow:
+    inset 0 1px 0 var(--rim), inset 0 -1px 0 var(--glass-edge),
+    inset 0 0 22px 2px var(--glass-glow), var(--shadow-lg);
+  transition: box-shadow .35s var(--ease), background .35s var(--ease);
+}
+/* Reflejo curvo en la mitad superior, como el borde de una lente. */
+.topbar::before {
+  content: ''; position: absolute; inset: 0 0 auto 0; height: 50%; z-index: -1;
+  background: linear-gradient(180deg, var(--glass-shine), transparent);
+  border-radius: 26px 26px 60% 60% / 26px 26px 14px 14px; pointer-events: none;
 }
 .topbar-row {
-  max-width: 1240px; margin: 0 auto; padding: 10px 20px;
+  padding: 10px 14px;
   display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 .topbar-row.filters { padding-top: 0; padding-bottom: 10px; }
@@ -82,7 +115,23 @@ button, input, select { font: inherit; color: inherit; }
 .topbar.compact:not(:hover):not(:focus-within) .topbar-more { grid-template-rows: 0fr; }
 /* Con la barra plegada desplegándose encima del contenido, una sombra la
    separa: sin ella los filtros parecen parte del primer panel. */
-.topbar.compact:is(:hover, :focus-within) { box-shadow: 0 12px 28px rgba(10, 18, 26, .14); }
+.topbar.compact:is(:hover, :focus-within) { background: linear-gradient(180deg, var(--glass-hi), var(--glass-lo)); }
+/* Los controles de la barra son píldoras de vidrio dentro del vidrio. */
+.topbar .ghost, .topbar .search input, .topbar .filters input, .topbar .filters select,
+.topbar .presets, .topbar .jump nav {
+  background: var(--glass-well); border-color: var(--glass-edge);
+  box-shadow: inset 0 1px 0 var(--rim);
+}
+.topbar .ghost { border-radius: 999px; }
+.topbar .ghost:hover { background: var(--glass-hi); }
+.topbar .filters input, .topbar .filters select { border-radius: 999px; padding: 6px 14px; }
+.topbar .presets { padding: 3px; border: 1px solid var(--glass-edge); border-radius: 999px; gap: 2px; }
+.topbar .presets button { border: 0; background: transparent; border-radius: 999px; }
+.topbar .presets button:hover { background: var(--glass-hi); }
+.topbar .jump nav { padding: 3px; border: 1px solid var(--glass-edge); border-radius: 999px; gap: 2px; }
+.topbar .jump a { border: 0; background: transparent; border-radius: 999px; }
+.topbar .jump a:hover { background: var(--glass-hi); }
+.progress { position: absolute; left: 22px; right: 22px; bottom: 0; }
 /* Logotipo: la imagen de marca manda y "Dashboard" es la etiqueta que la
    acompaña, pequeña, en versalitas y en el gris de apoyo. Alto fijo de 30px:
    la topbar es sticky y las secciones anclan contra su alto. El PNG está
@@ -97,17 +146,38 @@ button, input, select { font: inherit; color: inherit; }
 
 .search { position: relative; display: flex; align-items: center; flex: 1; min-width: 180px; max-width: 400px; margin-left: 8px; }
 .search svg { position: absolute; left: 10px; color: var(--muted); pointer-events: none; }
-.search input { width: 100%; padding: 7px 30px 7px 32px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); }
+.search input { width: 100%; padding: 7px 30px 7px 32px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-2); }
 .clear { position: absolute; right: 6px; border: 0; background: none; cursor: pointer; color: var(--muted); font-size: 18px; line-height: 1; padding: 0 4px; }
 
 .ghost {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px;
+  padding: 7px 12px; border: 1px solid var(--line); border-radius: 12px;
   background: var(--surface); cursor: pointer; color: var(--muted); text-decoration: none;
   transition: color .12s, border-color .12s, background .12s;
 }
 .ghost:hover { color: var(--brand); border-color: var(--brand); background: var(--hover); }
 .ghost:disabled { opacity: .5; cursor: default; }
+
+/* Botones de ACCIÓN: se leen contra el fondo. Los `.ghost` quedan para controles
+   secundarios (cerrar, filtros); una acción que cambia algo no puede parecerse a eso.
+   Deshabilitado = apagado, gris y con el cursor prohibido: no debe confundirse con activo. */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 16px; border: 1.5px solid transparent; border-radius: 12px;
+  font: inherit; font-weight: 600; line-height: 1.2; white-space: nowrap; cursor: pointer;
+  transition: transform .12s, filter .12s, box-shadow .12s, background .12s;
+}
+.btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.07); }
+.btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; filter: grayscale(.6); }
+.btn-sm { padding: 5px 12px; font-size: 12.5px; border-radius: 10px; }
+.btn-primary { background: var(--brand); color: #fff; box-shadow: 0 3px 10px color-mix(in srgb, var(--brand) 32%, transparent); }
+.btn-ok { background: var(--ok); color: #fff; box-shadow: 0 3px 10px color-mix(in srgb, var(--ok) 30%, transparent); }
+.btn-danger { background: var(--danger); color: #fff; box-shadow: 0 3px 10px color-mix(in srgb, var(--danger) 30%, transparent); }
+.btn-outline { background: var(--surface); color: var(--brand); border-color: var(--brand); }
+.btn-outline:hover:not(:disabled) { background: color-mix(in srgb, var(--brand) 12%, var(--surface)); filter: none; }
+/* En oscuro --brand, --ok y --danger son claros: el blanco encima no llega a AA. */
+:root[data-theme='dark'] .btn-primary, :root[data-theme='dark'] .btn-ok, :root[data-theme='dark'] .btn-danger { color: #0b1620; }
 
 .filters input, .filters select {
   padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface);
@@ -135,30 +205,62 @@ button, input, select { font: inherit; color: inherit; }
 .cards { margin-bottom: 20px; }
 .card {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 14px 16px; display: flex; flex-direction: column; gap: 3px; box-shadow: var(--shadow);
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 3px; box-shadow: inset 0 1px 0 var(--rim), var(--shadow);
 }
-.card-label { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 500; }
+.card-label { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 700; }
 /* Cifras proporcionales: tabular-nums haría ver suelto un "121" a 34px.
    Se reserva para columnas que sí alinean (tablas, ticks del eje). */
 /* `line-height` propio: el 1.55 del body es para prosa y le dejaba a un número
    de 34px una caja de 53px, con el aire repartido arriba y abajo de la cifra. */
-.card-value { font-size: 22px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; }
+.card-value { font-size: 24px; font-weight: 700; letter-spacing: -.03em; line-height: 1.15; }
 .card-sub { font-size: 12px; color: var(--muted); }
 /* El KPI principal, más grande — jerarquía visual antes que decoración. */
 .card.hero { grid-column: span 2; background: linear-gradient(135deg, var(--surface), var(--surface-2)); }
-.card.hero .card-value { font-size: 34px; }
+.card.hero .card-value { font-size: 38px; }
 .card.accent .card-value { color: var(--ok); }
 .card.danger { border-color: color-mix(in srgb, var(--danger) 35%, var(--line)); background: color-mix(in srgb, var(--danger) 6%, var(--surface)); }
 .card.danger .card-value { color: var(--danger); }
+.card.warn { border-color: color-mix(in srgb, var(--warn) 35%, var(--line)); background: color-mix(in srgb, var(--warn) 6%, var(--surface)); }
+.card.warn .card-value { color: var(--warn); }
+/* `info`: algo que conviene auditar, no una falla. Neutro, con el acento de la marca. */
+.card.info { border-color: color-mix(in srgb, var(--brand) 30%, var(--line)); background: color-mix(in srgb, var(--brand) 5%, var(--surface)); }
+.card.info .card-value { color: var(--brand); }
+
+/* Acciones de un clic del cajón: por fila y para todo el conjunto. */
+.row-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.bulk-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 12px; }
+
+/* Comando copiable de una fila del detalle (p. ej. resolver un cobro QR a mano). */
+tr.row-copy td { background: var(--surface-2); padding: 12px; }
+/* «Conciliar con wallet» dentro del cajón (Reconcile.jsx). */
+.reconcile { display: grid; gap: 8px; }
+.reconcile p { margin: 0; }
+.reconcile .msg { padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+.reconcile .msg.ok { border-color: var(--ok); }
+.reconcile .msg.bad { border-color: var(--danger); color: var(--danger); }
+.reconcile .row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.reconcile label { display: grid; gap: 4px; flex: 1; min-width: 240px; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.reconcile .hint { font-weight: 500; font-size: 12px; color: var(--muted); }
+.reconcile .hint.ok { color: var(--ok); }
+.reconcile .hint.falta { color: var(--warn); }
+.reconcile input:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.reconcile input {
+  padding: 6px 8px; font: inherit; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 6px; background: var(--surface);
+}
+tr.row-copy pre {
+  margin: 0 0 8px; padding: 10px; overflow-x: auto; white-space: pre; font-size: 12px;
+  border: 1px dashed var(--line); border-radius: 6px; background: var(--surface);
+}
 
 /* ── Paneles ───────────────────────────────────────────────────── */
 .panel {
   background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
-  padding: 16px 18px; margin-bottom: 16px; box-shadow: var(--shadow);
+  padding: 20px 22px; margin-bottom: 16px; box-shadow: inset 0 1px 0 var(--rim), var(--shadow);
 }
 .panel h2 {
-  font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted);
-  margin: 0 0 14px; font-weight: 600; display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
+  font-size: 12px; text-transform: uppercase; letter-spacing: .09em; color: var(--muted);
+  margin: 0 0 16px; font-weight: 700; display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
 }
 /* Sin `opacity`: el texto ya viene en --muted, y atenuarlo otra vez lo bajaba a
    ~3.4:1. La jerarquía la dan el tamaño y el peso, no una segunda capa de gris. */
@@ -229,7 +331,7 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 /* ── Secciones ──────────────────────────────────────────────────
    `scroll-margin-top` deja el título por debajo de la topbar
    PLEGADA (~59px): con cualquier scroll la barra se pliega. */
-.sect { scroll-margin-top: 76px; margin-top: 32px; }
+.sect { scroll-margin-top: 88px; margin-top: 32px; }
 .sect:first-child { margin-top: 0; }
 /* El último hijo de una sección ya no aporta su margen: `.cards` (20px),
    `.panel` (16px) y `.grid` (16px) se sumaban a los 32px de la siguiente y el
@@ -263,10 +365,29 @@ table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nu
 .error { color: var(--danger); }
 .ok { color: var(--ok); }
 
+/* Procesos de fondo (latidos). Siempre arriba; se enciende solo si alguno cayó. */
+.workers {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px;
+  padding: 10px 14px; margin-bottom: 18px; font-size: 13px;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface);
+}
+.workers.alarm {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
+}
+.workers-title { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; font-size: 11px; font-weight: 600; }
+.workers ul { display: flex; flex-wrap: wrap; gap: 6px 18px; list-style: none; margin: 0; padding: 0; }
+.worker { display: inline-flex; align-items: center; gap: 6px; }
+.worker i { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); flex: none; }
+.worker.ok i { background: var(--ok); }
+.worker.down i { background: var(--danger); }
+.worker span { color: var(--muted); }
+.worker.down b, .worker.down span { color: var(--danger); }
+
 /* ── Tarjetas y paneles clickeables ──────────────────────────── */
 button.card { font: inherit; text-align: left; cursor: pointer; }
-.card.clickable { transition: border-color .12s, transform .12s; }
-.card.clickable:hover { border-color: var(--brand); transform: translateY(-1px); }
+.card.clickable { transition: border-color .2s var(--ease), transform .3s var(--ease), box-shadow .3s var(--ease); }
+.card.clickable:hover { border-color: var(--brand); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
 .card.clickable:focus-visible, .panel-open:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
 .card-label { display: flex; align-items: center; gap: 4px; }
 .chev { color: var(--brand); font-weight: 700; }
@@ -284,7 +405,8 @@ button.card { font: inherit; text-align: left; cursor: pointer; }
 .drawer {
   width: min(900px, 100%); height: 100%; overflow-y: auto;
   background: var(--surface); border-left: 1px solid var(--line);
-  padding: 18px 22px 60px; animation: slidein .18s ease-out;
+  padding: 18px 22px 60px; animation: slidein .35s var(--ease);
+  border-radius: 22px 0 0 22px; box-shadow: var(--shadow-lg);
 }
 /* Solo `transform`: animar la opacidad de una superficie grande deja ver el
    fondo a través del panel en cualquier fotograma intermedio. */
@@ -617,3 +739,21 @@ button.card { font: inherit; text-align: left; cursor: pointer; }
   .search { order: 3; max-width: none; margin-left: 0; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* Estado del día: un semáforo por área. Gris = no se sabe (nunca verde por omisión). */
+.status { padding: 10px 14px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); font-size: 13px; }
+.status.danger { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); background: color-mix(in srgb, var(--danger) 7%, var(--surface)); }
+.status.warn { border-color: color-mix(in srgb, var(--warn) 45%, var(--line)); background: color-mix(in srgb, var(--warn) 7%, var(--surface)); }
+.status-head { margin: 0 0 8px; display: flex; align-items: center; gap: 8px; }
+.status-head i, .pill i { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.status.ok .status-head i, .pill.ok i { background: var(--ok); }
+.status.warn .status-head i, .pill.warn i { background: var(--warn); }
+.status.danger .status-head i, .pill.danger i { background: var(--danger); }
+.status ul { display: flex; flex-wrap: wrap; gap: 6px 8px; list-style: none; margin: 0; padding: 0; }
+.pill { display: inline-flex; align-items: center; gap: 7px; padding: 4px 11px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.pill:hover { background: var(--hover); }
+.pill b { font-weight: 600; }
+.pill.danger { border-color: var(--danger); }
+.pill.warn { border-color: var(--warn); }
+.pill.unknown { color: var(--muted); }
+#procesos { scroll-margin-top: 76px; }

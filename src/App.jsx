@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { computeStatus, goToArea, headline } from './status'
 import {
   Area, AreaChart, CartesianGrid, ReferenceDot, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts'
@@ -12,7 +13,7 @@ import { CAT_DARK, CAT_LIGHT, SLOTS, stableColors, statusColor } from './palette
 // Índice del salto de la topbar. El orden es el de la página: primero lo que
 // obliga a actuar (alertas), después lo que se consulta.
 const SECTIONS = [
-  ['resumen', 'Resumen'], ['alertas', 'Alertas'], ['ventas', 'Ventas'],
+  ['estado', 'Estado'], ['resumen', 'Resumen'], ['alertas', 'Alertas'], ['ventas', 'Ventas'],
   ['operacion', 'Operación'], ['sistema', 'Sistema'],
 ]
 
@@ -264,6 +265,174 @@ function AuthWatch({ w, rows, ends, tint, onPick }) {
   )
 }
 
+/** Límites de peticiones: quién choca contra los rate limits, por usuario y por
+ *  dispositivo. Por IP no sirve: en un colegio cientos de celulares salen por una.
+ *  Un usuario con varios dispositivos es una cuenta compartida o robada; un
+ *  dispositivo con varios usuarios es un celular prestado… o un script probando cuentas. */
+function ThrottleWatch({ w, users, devices, scopes, tint, onPick }) {
+  if (!w.scopable) {
+    return <p className="empty">Los límites de peticiones no se pueden atribuir a una tienda o ciudad — quita el filtro para verlos.</p>
+  }
+  if (!w.total) return <p className="ok">✓ Nadie topó los límites de peticiones en el período</p>
+
+  const fila = (key, label, onClick, celdas) => (
+    <tr key={key} onClick={onClick} tabIndex={0} role="button" title={label}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && (e.preventDefault(), onClick())}>
+      {celdas}
+    </tr>
+  )
+  const ultimo = (v) => (v ? v.slice(0, 16).replace('T', ' ') : '—')
+
+  return (
+    <>
+      <p className={`headline ${w.flagged ? 'bad' : ''}`}>
+        <b>{num(w.total)}</b> peticiones cortadas por límite en el período.
+        {w.flagged > 0 && ` ${num(w.flagged)} usuario(s) o dispositivo(s) con ${w.min} o más.`}
+      </p>
+      {users.length > 0 && (
+        <>
+          <h3 className="sub">Usuarios</h3>
+          <table className="plain pickable">
+            <thead>
+              <tr><th>Usuario</th><th>Quién</th><th className="n">Rechazos</th>
+                <th className="n">Límites</th><th className="n">Dispositivos</th><th className="n">Último</th></tr>
+            </thead>
+            <tbody>
+              {users.map((u) => fila(u.user, `Ver los rechazos de ${u.user}`, () => onPick({ usuario: u.user }), (
+                <>
+                  <td>{corto(u.user)}</td>
+                  <td>{u.who || '—'}</td>
+                  <td className={`n ${u.flag ? 'danger-text' : ''}`}>{num(u.n)}</td>
+                  <td className="n">{num(u.scopes)}</td>
+                  <td className={`n ${u.devices > 1 ? 'danger-text' : ''}`}>{num(u.devices)}</td>
+                  <td className="n">{ultimo(u.last)}</td>
+                </>
+              )))}
+            </tbody>
+          </table>
+        </>
+      )}
+      {devices.length > 0 && (
+        <>
+          <h3 className="sub">Dispositivos</h3>
+          <table className="plain pickable">
+            <thead>
+              <tr><th>Dispositivo</th><th className="n">Rechazos</th><th className="n">Usuarios</th><th className="n">Último</th></tr>
+            </thead>
+            <tbody>
+              {devices.map((d) => fila(d.device, `Ver los rechazos de ${d.device}`, () => onPick({ dispositivo: d.device }), (
+                <>
+                  <td>{corto(d.device)}</td>
+                  <td className={`n ${d.flag ? 'danger-text' : ''}`}>{num(d.n)}</td>
+                  <td className={`n ${d.users > 1 ? 'danger-text' : ''}`}>{num(d.users)}</td>
+                  <td className="n">{ultimo(d.last)}</td>
+                </>
+              )))}
+            </tbody>
+          </table>
+        </>
+      )}
+      {scopes.length > 0 && (
+        <>
+          <h3 className="sub">Límites más topados</h3>
+          <BarTable rows={scopes} label="scope" value="n" format={num} colors={() => tint} />
+        </>
+      )}
+    </>
+  )
+}
+
+/** Bloqueos de PIN de las últimas 24 h (consumidores y cajas), según auth_fud.
+ *  «Sin datos» (auth no respondió) se distingue de «sin bloqueos»: lo primero no es buena noticia. */
+function PinWatch({ w }) {
+  if (!w.available) return <p className="empty">Sin datos: auth_fud no respondió, no se pueden ver los bloqueos de PIN.</p>
+  const global = w.scopable
+  if (!global && w.terminals.length === 0) {
+    return <p className="empty">Sin cajas bloqueadas en este ámbito. Los bloqueos de consumidores no se pueden atribuir a una tienda — quita el filtro para verlos.</p>
+  }
+  if (global && !w.locks_window) return <p className="ok">✓ Sin bloqueos de PIN en las últimas {w.window_hours} h</p>
+  return (
+    <>
+      {global && (
+        <p className={`headline ${w.hard_locks_window ? 'bad' : ''}`}>
+          <b>{num(w.locks_window)}</b> bloqueos en {w.window_hours} h ({num(w.locks_last_hour)} en la última hora)
+          {w.hard_locks_window > 0 && `, ${num(w.hard_locks_window)} bloqueo(s) duro(s) que requieren intervención`}.
+        </p>
+      )}
+      {w.terminals.length > 0 && (
+        <table className="plain">
+          <thead><tr><th>Caja</th><th>Tienda</th><th className="n">Bloqueos</th><th className="n">Último</th></tr></thead>
+          <tbody>
+            {w.terminals.map((t, i) => (
+              <tr key={`${t.terminal}-${i}`}>
+                <td>{t.terminal}</td><td>{t.store || '—'}</td>
+                <td className="n danger-text">{num(t.locks)}</td>
+                <td className="n">{t.last ? t.last.slice(0, 16).replace('T', ' ') : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      {global && w.repeat_users.length > 0 && (
+        <>
+          <h3 className="sub">Consumidores que insisten (enmascarados)</h3>
+          <table className="plain">
+            <thead><tr><th>Usuario</th><th className="n">Bloqueos</th><th className="n">Duros</th><th className="n">Último</th></tr></thead>
+            <tbody>
+              {w.repeat_users.map((u, i) => (
+                <tr key={`${u.user}-${i}`}>
+                  <td>{u.user}</td><td className="n">{num(u.locks)}</td>
+                  <td className={`n ${u.hard_locks ? 'danger-text' : ''}`}>{num(u.hard_locks)}</td>
+                  <td className="n">{u.last ? u.last.slice(0, 16).replace('T', ' ') : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+    </>
+  )
+}
+
+const DPOP_KIND = {
+  missing: 'Sin header DPoP', bad_signature: 'Firma inválida', jkt_mismatch: 'Clave distinta a la del token',
+  ath_mismatch: 'Proof de otro token', stale: 'Proof vencido', future: 'Proof con fecha futura',
+  method_mismatch: 'Método distinto', uri_mismatch: 'URL distinta', replay: 'Proof repetido (replay)',
+  replay_check_failed: 'Anti-replay no pudo evaluarse', malformed: 'Proof mal formado',
+  bad_typ: 'Tipo de proof inválido', unsupported_alg: 'Algoritmo no permitido',
+  private_key_in_header: 'Clave privada en el header', missing_claims: 'Proof incompleto',
+  body_digest_mismatch: 'Cuerpo distinto al firmado', invalid: 'Inválido',
+}
+
+/** Fallos de DPoP de 24 h. «Bloqueados» (enforce) dejó a alguien sin operar; «observados»
+ *  (log_only) se dejó pasar: es lo que hay que revisar antes de pasar a enforce. */
+function DpopWatch({ w }) {
+  if (!w.available) return <p className="empty">Sin datos: Redis no respondió, no se pueden ver los fallos de DPoP.</p>
+  if (!w.scopable) return <p className="empty">Los fallos de DPoP no se pueden atribuir a una tienda o ciudad — quita el filtro para verlos.</p>
+  const tabla = (rows) => (
+    <table className="plain">
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.kind}><td>{DPOP_KIND[r.kind] || r.kind}</td><td className="n strong">{num(r.n)}</td></tr>
+        ))}
+      </tbody>
+    </table>
+  )
+  if (!w.blocked_total && !w.observed_total) {
+    return <p className="ok">✓ Sin fallos de DPoP en las últimas {w.window_hours} h (modo {w.mode})</p>
+  }
+  return (
+    <>
+      <p className={`headline ${w.blocked_total ? 'bad' : ''}`}>
+        Modo <b>{w.mode}</b>: <b>{num(w.blocked_total)}</b> rechazados y <b>{num(w.observed_total)}</b> observados sin bloquear
+        (últimas {w.window_hours} h).
+      </p>
+      {w.blocked_total > 0 && <><h3 className="sub">Rechazados</h3>{tabla(w.blocked)}</>}
+      {w.observed_total > 0 && <><h3 className="sub">Observados (no bloquearon)</h3>{tabla(w.observed)}</>}
+    </>
+  )
+}
+
 /** Usuarios DISTINTOS, que no es lo que dice «Tipo de pagador»: veinte órdenes
  *  pueden ser veinte personas o una que volvió veinte veces, y para dimensionar
  *  el sistema hace falta la segunda cifra. */
@@ -320,24 +489,83 @@ function Events({ e, tint, onPick }) {
   )
 }
 
-function Alerts({ a, onOpen }) {
-  // La clave es la misma que la métrica del detalle: la tarjeta y sus filas
-  // salen del mismo queryset en el backend, así el número no puede diferir.
-  const items = [
-    ['limbo_payments', 'Cobros en limbo', a.limbo_payments.n, money(a.limbo_payments.total)],
-    ['outbox_stuck', 'Outbox sin cerrar', a.outbox_stuck.n, `${a.outbox_stuck.exhausted} agotados`],
-    ['allocation_mismatch', 'Allocations descuadradas', a.allocation_mismatch, 'sum ≠ amount'],
-    ['paid_orders_without_allocation', 'Órdenes PAID sin allocation', a.paid_orders_without_allocation, ''],
-    ['topups_stuck', 'Recargas atascadas', a.topups_stuck, ''],
-    ['stale_dispatches', 'Despachos abiertos', a.stale_dispatches, ''],
-  ].filter(([, , n]) => n > 0)
+const WORKER_STATE = {
+  ok: { tone: 'ok', text: 'Activo' },
+  down: { tone: 'down', text: 'Caído' },
+  never: { tone: 'idle', text: 'Sin latidos registrados' },
+  unknown: { tone: 'idle', text: 'Sin datos' },
+}
 
-  if (!items.length) return <p className="ok">✓ Sin dinero en estados raros</p>
+/** Los procesos de fondo, siempre arriba y fuera de los filtros.
+ *
+ *  Si el que drena el outbox se detiene, los cobros a wallet dejan de confirmarse
+ *  y el síntoma (cobros en limbo) aparece horas después. Aquí se ve la causa. Un
+ *  worker «sin latidos» no es lo mismo que uno caído: puede no estar desplegado
+ *  en este entorno, así que va en gris y no enciende la alarma. */
+function WorkersBar({ workers }) {
+  const caidos = workers.filter((w) => w.state === 'down').length
+  return (
+    <section id="procesos" className={`workers ${caidos ? 'alarm' : ''}`} role="status" aria-label="Procesos de fondo">
+      <span className="workers-title">Procesos de fondo</span>
+      <ul>
+        {workers.map((w) => {
+          const s = WORKER_STATE[w.state] ?? WORKER_STATE.unknown
+          const vivo = w.state === 'ok' || w.state === 'down'
+          return (
+            <li key={w.worker} className={`worker ${s.tone}`}
+              title={vivo ? `Se da por caído tras ${dur(w.threshold_seconds)} sin latir (corre cada ${dur(w.interval)})` : undefined}>
+              <i />
+              <b>{w.label}</b>
+              <span>{vivo ? `${s.text}, último latido hace ${dur(w.age_seconds)}` : s.text}</span>
+            </li>
+          )
+        })}
+      </ul>
+    </section>
+  )
+}
+
+/** Semáforo por área, arriba de todo. Se calcula en `status.js` con lo que ya llegó. */
+function StatusStrip({ data }) {
+  const areas = computeStatus(data)
+  const h = headline(areas)
+  return (
+    <section className={`status ${h.tone}`} aria-label="Estado del día">
+      <p className="status-head"><i />Estado del día: <b>{h.text}</b></p>
+      <ul>
+        {areas.map((a) => (
+          <li key={a.id}>
+            <button type="button" className={`pill ${a.tone}`} onClick={() => goToArea(a.id)}
+              title={a.razones.length ? a.razones.join('; ') : a.tone === 'ok' ? 'Sin novedades' : undefined}>
+              <i />{a.label}{a.n > 0 && <b>{num(a.n)}</b>}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+// La severidad que manda el backend decide el tono de la tarjeta.
+const ALERT_TONE = { critical: 'danger', warn: 'warn', info: 'info' }
+
+/** El subtítulo viaja tipado: el formato de dinero vive aquí, no en el backend. */
+const alertSub = (sub) => (!sub ? '' : sub.type === 'money' ? money(sub.value) : sub.value)
+
+function Alerts({ a, onOpen }) {
+  // El backend manda TODAS las alertas registradas, también las que están en
+  // cero (el «Estado del día» necesita saber que un grupo está en verde). Aquí
+  // solo se dibujan las que tienen casos. La clave es la misma que la métrica
+  // del detalle: la tarjeta y sus filas salen del mismo queryset, así el número
+  // no puede diferir.
+  const items = a.filter((x) => x.n > 0)
+
+  if (!items.length) return <p className="ok">✓ Sin alertas</p>
   return (
     <div className="alerts">
-      {items.map(([key, label, n, sub]) => (
-        <Card key={key} tone="danger" label={label} value={num(n)} sub={sub}
-          onOpen={() => onOpen(key)} />
+      {items.map((x) => (
+        <Card key={x.key} tone={ALERT_TONE[x.severity] ?? 'danger'} label={x.label} value={num(x.n)}
+          sub={alertSub(x.sub)} onOpen={() => onOpen(x.key)} />
       ))}
     </div>
   )
@@ -400,6 +628,9 @@ export default function App() {
   const tiempos = filterRows(data.dispatch_times.terminals, q, 'terminal', 'store')
   const actores = filterRows(data.auth_watch.actors, q, 'actor', 'who')
   const recursos = filterRows(data.auth_watch.endpoints, q, 'endpoint')
+  const limUsers = filterRows(data.throttle_watch.users, q, 'user', 'who')
+  const limDevices = filterRows(data.throttle_watch.devices, q, 'device')
+  const limScopes = filterRows(data.throttle_watch.scopes, q, 'scope')
 
   // Buscando, un panel sin coincidencias se oculta en vez de quedar vacío:
   // ocho cajas con "Sin datos" leen como si el buscador estuviera roto.
@@ -419,6 +650,10 @@ export default function App() {
       <TopBar {...{ filters, setFilters, cities: data.cities, stores: data.stores, customers: data.customers, range: data.range, suggestions, q, setQ, onRefresh: refresh, loading, theme, toggleTheme, onDocs: () => setDocs(true), onTreasury: () => setTreasury(true), sections: SECTIONS }} />
       {/* Al refrescar se mantiene el render anterior atenuado: sin salto de layout. */}
       <main className={loading ? 'stale' : ''}>
+        <Section id="estado" title="Estado del día" sub="semáforo por área y procesos de fondo">
+          <StatusStrip data={data} />
+          <WorkersBar workers={data.workers} />
+        </Section>
         {/* Qué estás mirando, antes de la primera cifra. Con un customer puesto,
             todos los números de abajo son de ESTAS tiendas y de ninguna otra;
             dejarlo implícito es la forma más fácil de leer mal el panel. */}
@@ -452,6 +687,10 @@ export default function App() {
           <Card tone="accent" label="Comisión plataforma" value={money(kpis.commission)}
             onOpen={() => setDetail({ metric: 'commission' })} sub="lo que gana Fud" />
           <Card label="Recargas" value={moneyShort(kpis.topups)} onOpen={() => setDetail({ metric: 'topups' })} />
+          {/* Lo que las promos descontaron en órdenes pagadas, y cuánto pesa sobre las ventas.
+              Un salto aquí suele ser una promo mal configurada (p. ej. 90 % por accidente). */}
+          <Card label="Descuentos" value={moneyShort(kpis.discounts)} sub={`${kpis.discounts_pct}% de las ventas`}
+            onOpen={() => setDetail({ metric: 'discounts' })} />
           <Card label="Ticket promedio" value={money(kpis.ticket_avg)} onOpen={() => setDetail({ metric: 'ticket_avg' })} />
           <Card label="Órdenes" value={num(kpis.orders)} delta={trend.orders.delta}
             onOpen={() => setDetail({ metric: 'orders' })}
@@ -468,6 +707,14 @@ export default function App() {
           <Alerts a={alerts} onOpen={(metric) => setDetail({ metric })} />
         </Panel>
 
+        <Panel title="Bloqueos de PIN" sub="consumidores y cajas, últimas 24 h, datos de auth_fud">
+          <PinWatch w={data.pin_watch} />
+        </Panel>
+
+        <Panel title="Fallos de DPoP" sub="prueba de posesión de la clave del dispositivo, últimas 24 h">
+          <DpopWatch w={data.dpop_watch} />
+        </Panel>
+
         <Panel title="Cambios de comportamiento" sub={`vs los ${trend.span_days} días anteriores`} wide>
           <Trend t={trend} onOpen={setDetail} />
         </Panel>
@@ -477,6 +724,14 @@ export default function App() {
           onOpen={() => setDetail({ metric: 'auth_failures' })}>
           <AuthWatch w={data.auth_watch} rows={top(actores)} ends={top(recursos)} tint={CAT[0]}
             onPick={(actor) => setDetail({ metric: 'auth_failures', preset: { actor } })} />
+        </Panel>
+
+        <Panel title="Límites de peticiones" wide
+          sub="quién topa los rate limits (auth y business) en el período · clic en una fila para ver sus rechazos"
+          onOpen={() => setDetail({ metric: 'throttle_denials' })}>
+          <ThrottleWatch w={data.throttle_watch} users={top(limUsers)} devices={top(limDevices)}
+            scopes={top(limScopes)} tint={CAT[0]}
+            onPick={(preset) => setDetail({ metric: 'throttle_denials', preset })} />
         </Panel>
         </Section>
 
@@ -642,7 +897,7 @@ export default function App() {
 
       {detail && (
         <Detail metric={detail.metric} preset={detail.preset} filters={filters}
-          tint={CAT[0]} cat={CAT} reload={tick} onClose={() => setDetail(null)} />
+          tint={CAT[0]} cat={CAT} reload={tick} onChanged={refresh} onClose={() => setDetail(null)} />
       )}
 
       {docs && <Docs onClose={() => setDocs(false)} />}
