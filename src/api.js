@@ -14,6 +14,11 @@ const meta = (name) => document.querySelector(`meta[name="${name}"]`)?.content
  *  así sigue a `ADMIN_URL_PATH` sin recompilar. Con `npm run dev` no hay plantilla:
  *  valen el env y el default. */
 export const API_BASE = (meta('dashboard-base') || import.meta.env.VITE_DASHBOARD_BASE || '/business/admin/dashboard/').replace(/\/?$/, '/')
+/** Índice del admin de business: el tablero cuelga de él (`<admin>/dashboard/`). */
+export const ADMIN_URL = API_BASE.replace(/dashboard\/$/, '')
+/** URL del logo. En producción los estáticos viven en `/business/static/`, no en
+ *  `/static/`: la plantilla la inyecta con `{% static %}`. El default es el de `npm run dev`. */
+export const LOGO_URL = meta('logo') || '/static/images/logo_letras_fud_recorte.png'
 /** Nombre de la cookie CSRF: en producción es `business_csrftoken`, no `csrftoken`. */
 const CSRF_COOKIE = meta('csrf-cookie') || 'csrftoken'
 

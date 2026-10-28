@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { money, num, pct } from './api'
+import { ADMIN_URL, LOGO_URL, money, num, pct } from './api'
 import { inkOn } from './palette'
 
 /** Avisos que confirman el resultado de una acción, bien o mal. Los comparten la
@@ -353,7 +353,7 @@ export function TopBar({ filters, setFilters, cities, stores, customers, range, 
     <div className="topbar-spacer" style={{ height }} />
     <div ref={bar} className={`topbar ${compact ? 'compact' : ''}`}>
       <div className="topbar-row">
-        <h1><img src="/static/images/logo_letras_fud_recorte.png" alt="Fud" />Dashboard</h1>
+        <h1><img src={LOGO_URL} alt="Fud" />Dashboard</h1>
         <div className={`search ${q ? 'on' : ''}`}>
           <IconSearch />
           <input list="fud-sug" placeholder="Filtrar tiendas, productos, estados…" value={q}
@@ -377,7 +377,7 @@ export function TopBar({ filters, setFilters, cities, stores, customers, range, 
         <button className="ghost" onClick={onDocs} title="Guías de operación">
           <IconInfo /><span>Guías</span>
         </button>
-        <a className="ghost" href="/admin/" title="Volver al admin"><IconBack /><span>Admin</span></a>
+        <a className="ghost" href={ADMIN_URL} title="Volver al admin"><IconBack /><span>Admin</span></a>
       </div>
       <div className="topbar-more"><div>
       <div className="topbar-row filters">
