@@ -600,6 +600,10 @@ export default function App() {
   // máximo — una cifra en cada punto sería ruido.)
   const series = data.revenue.points
   const peak = series.reduce((a, b) => (b.total > (a?.total ?? -1) ? b : a), null)
+  // La etiqueta va del lado donde hay sitio. Centrada sobre un punto del borde, el texto se
+  // extendía sobre los números del eje Y y se encimaba con el `$100 k`.
+  const peakAt = series.length > 1 ? series.indexOf(peak) / (series.length - 1) : 0.5
+  const peakSide = peakAt < 0.25 ? 'right' : peakAt > 0.75 ? 'left' : 'top'
   const bucketLabel = { day: 'por día', week: 'por semana', month: 'por mes' }[data.revenue.bucket]
 
   // Cada paleta se calcula sobre los datos SIN el filtro de texto.
@@ -741,7 +745,7 @@ export default function App() {
         <Section id="ventas" title="Ventas">
         <Panel title="Ingresos" sub={bucketLabel} wide>
           <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={series} margin={{ left: 4, right: 12, top: 8, bottom: 4 }}>
+            <AreaChart data={series} margin={{ left: 4, right: 12, top: 24, bottom: 4 }}>
               <defs>
                 <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor={CAT[0]} stopOpacity={0.14} />
@@ -760,7 +764,9 @@ export default function App() {
                 <ReferenceDot x={peak.day} y={peak.total} r={4} fill={CAT[0]}
                   stroke="var(--surface)" strokeWidth={2} isFront
                   label={{ value: `${moneyShort(peak.total)} · ${peak.day.slice(5)}`,
-                    position: 'top', fontSize: 11, fill: CAT[0] }} />
+                    position: peakSide, offset: 10, fontSize: 11, fill: CAT[0],
+                    // Halo del color del fondo: la línea de la grilla no cruza el texto.
+                    style: { stroke: 'var(--surface)', strokeWidth: 3, paintOrder: 'stroke' } }} />
               )}
             </AreaChart>
           </ResponsiveContainer>
