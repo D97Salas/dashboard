@@ -113,6 +113,19 @@ export const filterRows = (rows, q, ...fields) => {
   return result
 }
 
+/** GET de una lectura de wallet a través de business (tesorería, cartera). Lanza con
+ *  el `error` del backend: un 502 «sin datos» es wallet caído, no una lista vacía. */
+export async function getJson(url) {
+  const r = await fetch(url, { credentials: 'same-origin' })
+  const d = await r.json().catch(() => ({}))
+  if (!r.ok || d.ok === false) throw new Error(d.error ?? `HTTP ${r.status}`)
+  return d
+}
+
+export const when = (iso) => (iso
+  ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
+  : '—')
+
 /** POST a una acción del dashboard. Lo único que escribe.
  *
  * Django exige el token CSRF en todo POST; la página lo siembra en la cookie

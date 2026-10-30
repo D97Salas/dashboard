@@ -558,14 +558,17 @@ function Alerts({ a, onOpen }) {
   // solo se dibujan las que tienen casos. La clave es la misma que la métrica
   // del detalle: la tarjeta y sus filas salen del mismo queryset, así el número
   // no puede diferir.
-  const items = a.filter((x) => x.n > 0)
+  // Las que dependen de otro servicio y no tienen datos también se dibujan: su 0 no
+  // es «sin casos», y callarla sería decir que todo está bien sin saberlo.
+  const items = a.filter((x) => x.n > 0 || x.available === false)
 
   if (!items.length) return <p className="ok">✓ Sin alertas</p>
   return (
     <div className="alerts">
-      {items.map((x) => (
-        <Card key={x.key} tone={ALERT_TONE[x.severity] ?? 'danger'} label={x.label} value={num(x.n)}
-          sub={alertSub(x.sub)} onOpen={() => onOpen(x.key)} />
+      {items.map((x) => (x.available === false
+        ? <Card key={x.key} label={x.label} value="—" sub="sin datos: el servicio no respondió" />
+        : <Card key={x.key} tone={ALERT_TONE[x.severity] ?? 'danger'} label={x.label} value={num(x.n)}
+            sub={alertSub(x.sub)} onOpen={() => onOpen(x.key)} />
       ))}
     </div>
   )

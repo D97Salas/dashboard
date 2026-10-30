@@ -9,19 +9,9 @@
  * (customer/ciudad) que ya esté puesto arriba.
  */
 import { useCallback, useEffect, useState } from 'react'
-import { action, API_BASE, money } from './api'
+import { action, API_BASE, getJson as get, money, when } from './api'
+import Commissions from './Commissions'
 import { Toasts, useBackdropClose, useToasts } from './components'
-
-async function get(url) {
-  const r = await fetch(url, { credentials: 'same-origin' })
-  const d = await r.json().catch(() => ({}))
-  if (!r.ok || d.ok === false) throw new Error(d.error ?? `HTTP ${r.status}`)
-  return d
-}
-
-const when = (iso) => (iso
-  ? new Date(iso).toLocaleString('es-CO', { dateStyle: 'medium', timeStyle: 'short' })
-  : '—')
 
 // Los rechazos que business no traduce llegan con el cuerpo crudo de wallet.
 const humanize = (msg) => {
@@ -349,7 +339,9 @@ export default function Treasury({ stores, store, cat, onClose }) {
           <button className="ghost" onClick={onClose} title="Cerrar">×</button>
         </header>
         <p className="drawer-meta">
-          Garantía de las tiendas en la red · cada acción mueve dinero real en wallet y queda en AuditLog
+          {tab === 'c'
+            ? 'Tasa de comisión por tipo de venta · wallet la aplica a cada venta y cada cambio queda en AuditLog'
+            : 'Garantía de las tiendas en la red · cada acción mueve dinero real en wallet y queda en AuditLog'}
         </p>
         <div className="tz-head">
           <div className="tabs">
@@ -357,6 +349,7 @@ export default function Treasury({ stores, store, cat, onClose }) {
             <button className={tab === 'w' ? 'on' : ''} onClick={() => setTab('w')}>
               Retiros{pending ? <span className="tz-count">{pending}</span> : null}
             </button>
+            <button className={tab === 'c' ? 'on' : ''} onClick={() => setTab('c')}>Comisiones</button>
           </div>
           <select className="tz-store" value={storeId} onChange={(e) => setStoreId(e.target.value)}>
             {stores.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -364,7 +357,9 @@ export default function Treasury({ stores, store, cat, onClose }) {
         </div>
         {tab === 'store'
           ? <StoreTab key={storeId} storeId={storeId} storeName={names[storeId] ?? ''} cat={cat} notify={notify} />
-          : <WithdrawalsTab storeId={storeId} names={names} notify={notify} onCount={setPending} />}
+          : tab === 'c'
+            ? <Commissions key={storeId} storeId={storeId} storeName={names[storeId] ?? ''} notify={notify} />
+            : <WithdrawalsTab storeId={storeId} names={names} notify={notify} onCount={setPending} />}
       </div>
       <Toasts items={toasts} dismiss={dismiss} />
     </div>

@@ -757,3 +757,28 @@ button.card { font: inherit; text-align: left; cursor: pointer; }
 .pill.warn { border-color: var(--warn); }
 .pill.unknown { color: var(--muted); }
 #procesos { scroll-margin-top: 76px; }
+
+/* ── Comisiones (pestaña de Tesorería) ─────────────────────────────────────── */
+.cm { display: flex; flex-direction: column; gap: 14px; }
+.cm-warn {
+  margin: 0; padding: 10px 14px; border-radius: 12px; font-size: 13px;
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--line));
+  background: color-mix(in srgb, var(--warn) 8%, var(--surface));
+}
+.cm td.cm-missing { color: var(--warn); font-weight: 600; }
+.cm-note { display: block; font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+.cm-who { font-size: 11.5px; color: var(--muted); overflow-wrap: anywhere; }
+.cm-unit { padding: 0 12px; color: var(--muted); font-weight: 600; }
+.cm-form .tz-money input { padding-right: 0; }
+.cm-row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+.cm-row > label { flex: 0 1 140px; }
+.cm-when { display: flex; flex-direction: column; gap: 5px; }
+.cm-when > div, .cm-when > input { align-self: flex-start; }
+.cm-lbl { font-size: 12px; font-weight: 600; color: var(--muted); }
+.cm-form textarea {
+  padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-2);
+  font-weight: 500; color: var(--ink); resize: vertical; font: inherit;
+}
+.cm-summary { margin: 0; font-size: 13px; font-weight: 600; }
+.cm-history summary { cursor: pointer; color: var(--muted); font-size: 13px; font-weight: 600; padding: 4px 0; }
+.cm-history table { margin-top: 8px; font-size: 13px; }

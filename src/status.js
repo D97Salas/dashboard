@@ -44,6 +44,13 @@ export function computeStatus(data) {
         razones.push('sin datos de PIN o DPoP (auth o Redis no respondieron)')
       }
     }
+    // Una alerta que depende de otro servicio (cobro → wallet) sin datos es «no se sabe»:
+    // contaba 0 casos y el área quedaba verde con wallet caído.
+    const ciegas = data.alerts.filter((x) => x.group === id && x.available === false && x.severity !== 'info')
+    if (tone === 'ok' && ciegas.length) {
+      tone = 'unknown'
+      razones.push(`sin datos: ${ciegas.map((x) => x.label).join(', ')}`)
+    }
     return { id, label, tone, razones, n: propias.reduce((s, x) => s + x.n, 0) }
   })
 
