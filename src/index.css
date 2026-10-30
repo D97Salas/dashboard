@@ -52,7 +52,11 @@
 }
 
 * { box-sizing: border-box; }
-html { color-scheme: light dark; }
+/* El tema lo elige el botón (data-theme), no el sistema operativo: con `light dark` el menú
+   nativo de un select salía blanco en el tema oscuro y su letra, clara, no se leía. */
+:root { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }
+select option, select optgroup { background: var(--surface); color: var(--ink); }
 body {
   font: 500 14px/1.55 "Urbanist", -apple-system, "Segoe UI", system-ui, sans-serif;
   margin: 0; background: var(--bg); color: var(--ink);
@@ -124,13 +128,33 @@ button, input, select { font: inherit; color: inherit; }
 }
 .topbar .ghost { border-radius: 999px; }
 .topbar .ghost:hover { background: var(--glass-hi); }
-.topbar .filters input, .topbar .filters select { border-radius: 999px; padding: 6px 14px; }
+.topbar .filters input, .topbar .filters select { border-radius: 999px; padding: 0 14px; }
 .topbar .presets { padding: 3px; border: 1px solid var(--glass-edge); border-radius: 999px; gap: 2px; }
 .topbar .presets button { border: 0; background: transparent; border-radius: 999px; }
 .topbar .presets button:hover { background: var(--glass-hi); }
 .topbar .jump nav { padding: 3px; border: 1px solid var(--glass-edge); border-radius: 999px; gap: 2px; }
 .topbar .jump a { border: 0; background: transparent; border-radius: 999px; }
 .topbar .jump a:hover { background: var(--glass-hi); }
+
+/* Una sola altura para todo lo que es píldora (botones, búsqueda, fechas, selects y los
+   dos grupos de la fila de abajo) y un solo borde derecho: antes cada uno traía su padding,
+   así que alturas y bordes no casaban de una fila a otra. Los grupos de 3px de relleno y
+   1px de borde llevan botones de (alto - 8). */
+.topbar { --tb-h: 38px; }
+.topbar .ghost, .topbar .search input, .topbar .filters input, .topbar .filters select {
+  height: var(--tb-h); padding-top: 0; padding-bottom: 0;
+}
+.topbar .ghost { justify-content: center; }
+.topbar .presets, .topbar .jump nav { height: var(--tb-h); align-items: stretch; }
+.topbar .presets button, .topbar .jump a {
+  display: inline-flex; align-items: center; justify-content: center; padding-top: 0; padding-bottom: 0;
+}
+/* Fila 1: la búsqueda ocupa lo que sobra y los botones terminan en el borde derecho. */
+.topbar .search { max-width: none; }
+/* Fila 2: las fechas quedan a su ancho y los tres selects se reparten el resto, así el
+   último termina donde terminan «Admin» y los rangos de tiempo. */
+.topbar .filters select { flex: 1 1 150px; min-width: 0; }
+.topbar .filters .sep { flex: none; }
 .progress { position: absolute; left: 22px; right: 22px; bottom: 0; }
 /* Logotipo: la imagen de marca manda y "Dashboard" es la etiqueta que la
    acompaña, pequeña, en versalitas y en el gris de apoyo. Alto fijo de 30px:
